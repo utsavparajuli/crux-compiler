@@ -2,7 +2,8 @@ package crux;
 
 final class Authors {
   // TODO: Add author information.
-  static final Author[] all = {new Author("student name", "student id", "UCInetID"),};
+  static final Author[] all = {new Author("Rohan Jayaram", "21656587", "rjayara1"),
+				new Author("Utsav Parajuli", "49849418", "uparajul")};
 }
 
 
