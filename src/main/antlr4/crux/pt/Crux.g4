@@ -10,11 +10,14 @@ literal
  ;
 
  designator
-   :Identifier (OPEN_BRACE expression0 CLOSE_BRACE)?
+   :Identifier (OPEN_BRACKET expression0 CLOSE_BRACKET)?
    ;
 
 type
   : Identifier
+  ;
+expressionList
+  : (expression0 (COMMA expression0)*)?
   ;
 op0
   : GREATER_EQUAL
@@ -54,18 +57,10 @@ expression3
   | literal
   ;
 callExpression
-  : Identifier OPEN_PREN expressionList CLOSE_PAREN
+  : Identifier OPEN_PAREN expressionList CLOSE_PAREN
   ;
-
-
-
-expressionList
-  : (expression0 (COMMA expression0)*)?
-  ;
-
-
 declarationList
- : declaration*
+ : (declaration)*
  ;
 
 declaration
@@ -80,7 +75,7 @@ variableDeclaration
 
 //array-declaration := type IDENTIFIER "[" INTEGER "]" ";" . SemiColon
 arrayDeclaration
-  : type IDENTIFIER OPEN_BRACKET Integer CLOSE_BRACKET SemiColon
+  : type Identifier OPEN_BRACKET Integer CLOSE_BRACKET SemiColon
   ;
 returnStatement
   : RETURN expression0 SemiColon
@@ -95,10 +90,10 @@ ifStatement
   : IF expression0 statementBlock (ELSE statementBlock)?
   ;
 assignmentStatement
-  : designator EQUAL expression0 SemiColon
+  : designator ASSIGN expression0 SemiColon
   ;
 assignmentStatementNoSemi
-  : designator EQUAL expression0
+  : designator ASSIGN expression0
   ;
 
 
@@ -151,8 +146,6 @@ IF:	'if';
 ELSE:	'else';
 FOR:	'for';
 BREAK:	'break';
-TRUE:	'true';
-FALSE:	'false';
 RETURN:	'return';
 OPEN_PAREN:	'(';
 CLOSE_PAREN:	')';
