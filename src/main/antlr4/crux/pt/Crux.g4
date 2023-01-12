@@ -1,7 +1,68 @@
 grammar Crux;
+
 program
  : declarationList EOF
  ;
+literal
+ : Integer
+ | True
+ | False
+ ;
+
+ designator
+   :Identifier (OPEN_BRACE expression0 CLOSE_BRACE)?
+   ;
+
+type
+  : Identifier
+  ;
+op0
+  : GREATER_EQUAL
+  | LESSER_EQUAL
+  | NOT_EQUAL
+  | EQUAL
+  | GREATER_THAN
+  | LESS_THAN
+  ;
+op1
+  : ADD
+  | SUB
+  | OR
+  ;
+op2
+  : MUL
+  | DIV
+  | AND
+  ;
+expression0
+  : expression1(op0 expression1)?
+  ;
+expression1
+  : expression2
+  | expression1 op1 expression2
+  ;
+expression2
+  : expression3
+  | expression2 op2 expression3
+  ;
+
+expression3
+  : NOT expression3
+  | OPEN_PAREN expression0 CLOSE_PAREN
+  | designator
+  | callExpression
+  | literal
+  ;
+callExpression
+  : Identifier OPEN_PREN expressionList CLOSE_PAREN
+  ;
+
+
+
+expressionList
+  : (expression0 (COMMA expression0)*)?
+  ;
+
 
 declarationList
  : declaration*
@@ -9,23 +70,70 @@ declarationList
 
 declaration
  : variableDeclaration
-// | arrayDeclaration
-// | functionDefinition
+ | arrayDeclaration
+ | functionDefinition
  ;
 
 variableDeclaration
  : type Identifier ';'
  ;
 
-type
- : Identifier
- ;
+//array-declaration := type IDENTIFIER "[" INTEGER "]" ";" . SemiColon
+arrayDeclaration
+  : type IDENTIFIER OPEN_BRACKET Integer CLOSE_BRACKET SemiColon
+  ;
+returnStatement
+  : RETURN expression0 SemiColon
+  ;
+breakStatement
+  : BREAK SemiColon
+  ;
+forStatement
+  : FOR OPEN_PAREN assignmentStatement expression0 SemiColon assignmentStatementNoSemi CLOSE_PAREN statementBlock
+  ;
+ifStatement
+  : IF expression0 statementBlock (ELSE statementBlock)?
+  ;
+assignmentStatement
+  : designator EQUAL expression0 SemiColon
+  ;
+assignmentStatementNoSemi
+  : designator EQUAL expression0
+  ;
 
-literal
- : Integer
- | True
- | False
- ;
+
+callStatement
+  : callExpression SemiColon
+  ;
+
+statement
+  : variableDeclaration
+  | callStatement
+  | assignmentStatement
+  | ifStatement
+  | forStatement
+  | breakStatement
+  | returnStatement
+  ;
+statementList
+  : statement*
+  ;
+statementBlock
+  : OPEN_BRACE statementList CLOSE_BRACE
+  ;
+parameter
+  : type Identifier
+  ;
+//parameter-list := [ parameter { "," parameter } ] .
+parameterList
+  : (parameter (COMMA parameter)*)?
+  ;
+
+//function-definition := type IDENTIFIER "(" parameter-list ")" statement-block .
+functionDefinition
+  : type Identifier OPEN_PAREN parameterList CLOSE_PAREN statementBlock
+  ;
+
 
 SemiColon: ';';
 
@@ -36,6 +144,34 @@ Integer
 
 True: 'true';
 False: 'false';
+AND: '&&';
+OR:	'||';
+NOT:	'!';
+IF:	'if';
+ELSE:	'else';
+FOR:	'for';
+BREAK:	'break';
+TRUE:	'true';
+FALSE:	'false';
+RETURN:	'return';
+OPEN_PAREN:	'(';
+CLOSE_PAREN:	')';
+OPEN_BRACE:	'{';
+CLOSE_BRACE:	'}';
+OPEN_BRACKET:	'[';
+CLOSE_BRACKET:	']';
+ADD:	'+';
+SUB:	'-';
+MUL:	'*';
+DIV:	'/';
+GREATER_EQUAL:	'>=';
+LESSER_EQUAL:	'<=';
+NOT_EQUAL:	'!=';
+EQUAL:	'==';
+GREATER_THAN:	'>';
+LESS_THAN:	'<';
+ASSIGN:	'=';
+COMMA:	',';
 
 Identifier
  : [a-zA-Z] [a-zA-Z0-9_]*
