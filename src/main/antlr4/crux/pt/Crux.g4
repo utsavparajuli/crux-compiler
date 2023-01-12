@@ -73,7 +73,6 @@ variableDeclaration
  : type Identifier ';'
  ;
 
-//array-declaration := type IDENTIFIER "[" INTEGER "]" ";" . SemiColon
 arrayDeclaration
   : type Identifier OPEN_BRACKET Integer CLOSE_BRACKET SemiColon
   ;
@@ -119,16 +118,14 @@ statementBlock
 parameter
   : type Identifier
   ;
-//parameter-list := [ parameter { "," parameter } ] .
+
 parameterList
   : (parameter (COMMA parameter)*)?
   ;
 
-//function-definition := type IDENTIFIER "(" parameter-list ")" statement-block .
 functionDefinition
   : type Identifier OPEN_PAREN parameterList CLOSE_PAREN statementBlock
   ;
-
 
 SemiColon: ';';
 
