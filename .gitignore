@@ -1,0 +1,6 @@
+#Intellij builds
+.idea/
+.settings/
+*.iml
+**/logs
+.DS_Store
