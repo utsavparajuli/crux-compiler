@@ -51,7 +51,16 @@ public final class ParseTreeLower {
    */
 
   public DeclarationList lower(CruxParser.ProgramContext program) {
-    return null;
+//    return null;
+    ArrayList<Declaration> list = new ArrayList<Declaration> ();
+
+    for(CruxParser.DeclarationContext context: program.declarationList().declaration()) {
+      Declaration node = context.accept(declarationVisitor);
+      list.add(node);
+    }
+
+    return new DeclarationList(makePosition(program.getParent()), list);
+
   }
 
   /**
@@ -60,9 +69,7 @@ public final class ParseTreeLower {
    * @return a {@link StatementList} AST object.
    */
 
-  /*
-   * private StatementList lower(CruxParser.StatementListContext statementList) { } 
-   */
+  private StatementList lower(CruxParser.StatementListContext statementList) { }
 
   /**
    * Similar to {@link #lower(CruxParser.StatementListContext)}, but handles symbol table as well.
