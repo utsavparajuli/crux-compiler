@@ -49,30 +49,25 @@ public final class ParseTreeLower {
    * 
    * @return a {@link DeclarationList} object representing the top-level AST.
    */
-
   public DeclarationList lower(CruxParser.ProgramContext program) {
-//    return null;
     ArrayList<Declaration> list = new ArrayList<Declaration> ();
 
     symTab.enter();
     for(CruxParser.DeclarationContext context: program.declarationList().declaration()) {
       Declaration node = context.accept(declarationVisitor);
-//      System.out.println("Here");
       list.add(node);
     }
 
-//    System.out.println("Last");
     symTab.exit();
     return new DeclarationList(makePosition(program), list);
-
   }
+
 
   /**
    * Lower statement list by lower individual statement into AST.
    * 
    * @return a {@link StatementList} AST object.
    */
-
   private StatementList lower(CruxParser.StatementListContext statementList) {
     ArrayList<Statement> list = new ArrayList<Statement> ();
 
@@ -89,10 +84,18 @@ public final class ParseTreeLower {
    * 
    * @return a {@link StatementList} AST object.
    */
+   private StatementList lower(CruxParser.StatementBlockContext statementBlock) {
+     symTab.enter();
 
-  /*
-   * private StatementList lower(CruxParser.StatementBlockContext statementBlock) { }
-   */
+
+     var stList = lower(statementBlock.statementList());
+
+     symTab.exit();
+
+     return stList;
+
+   }
+
 
   /**
    * A parse tree visitor to create AST nodes derived from {@link Declaration}
@@ -137,7 +140,20 @@ public final class ParseTreeLower {
 
       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
 
-      return null;
+      ArrayList<Symbol> paramList = new ArrayList<Symbol> ();
+
+      symTab.enter();
+
+      for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {
+
+        var parm = symTab.add(makePosition(ctx), context.Identifier().getText(), new IntType());
+        paramList.add(parm);
+      }
+
+      var statementList = lower(ctx.statementBlock().statementList());
+
+      symTab.exit();
+      return new FunctionDefinition(makePosition(ctx), symbol, paramList, statementList);
     }
 
   }
