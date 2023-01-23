@@ -54,12 +54,16 @@ public final class ParseTreeLower {
 //    return null;
     ArrayList<Declaration> list = new ArrayList<Declaration> ();
 
+    symTab.enter();
     for(CruxParser.DeclarationContext context: program.declarationList().declaration()) {
       Declaration node = context.accept(declarationVisitor);
+//      System.out.println("Here");
       list.add(node);
     }
 
-    return new DeclarationList(makePosition(program.getParent()), list);
+//    System.out.println("Last");
+    symTab.exit();
+    return new DeclarationList(makePosition(program), list);
 
   }
 
@@ -103,6 +107,8 @@ public final class ParseTreeLower {
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
        Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+//       System.out.println("Here end");
+
        return new VariableDeclaration(makePosition(ctx), symbol);
      }
 

@@ -84,8 +84,6 @@ public final class SymbolTable {
 
   SymbolTable(PrintStream err) {
     this.err = err;
-
-    System.out.println(err.toString());
     //TODO
   }
 
@@ -121,17 +119,20 @@ public final class SymbolTable {
 
     int index = symbolScopes.size() - 1;
 
-    Map<String, Symbol> recentScope = symbolScopes.get(index);
+    if (symbolScopes.size() > 0) {
+      Map<String, Symbol> recentScope = symbolScopes.get(index);
 
-    if (!recentScope.containsKey(name)) {
-      recentScope.put(name, new Symbol(name, type));
+      if (!recentScope.containsKey(name)) {
+        recentScope.put(name, new Symbol(name, type));
 
-      symbolScopes.set(index, recentScope);
+        symbolScopes.set(index, recentScope);
 
+      }
+      return recentScope.get(name);
+
+      //return null;
     }
-    return recentScope.get(name);
-
-    //return null;
+    return null;
   }
 
   /**
