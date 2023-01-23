@@ -49,30 +49,53 @@ public final class ParseTreeLower {
    * 
    * @return a {@link DeclarationList} object representing the top-level AST.
    */
-
   public DeclarationList lower(CruxParser.ProgramContext program) {
-    return null;
+    ArrayList<Declaration> list = new ArrayList<Declaration> ();
+
+    symTab.enter();
+    for(CruxParser.DeclarationContext context: program.declarationList().declaration()) {
+      Declaration node = context.accept(declarationVisitor);
+      list.add(node);
+    }
+
+    symTab.exit();
+    return new DeclarationList(makePosition(program), list);
   }
+
 
   /**
    * Lower statement list by lower individual statement into AST.
    * 
    * @return a {@link StatementList} AST object.
    */
+  private StatementList lower(CruxParser.StatementListContext statementList) {
+    ArrayList<Statement> list = new ArrayList<Statement> ();
 
-  /*
-   * private StatementList lower(CruxParser.StatementListContext statementList) { } 
-   */
+    for(CruxParser.StatementContext context: statementList.statement()) {
+      Statement node = context.accept(statementVisitor);
+      list.add(node);
+    }
+
+    return new StatementList(makePosition(statementList.getParent()), list);
+  }
 
   /**
    * Similar to {@link #lower(CruxParser.StatementListContext)}, but handles symbol table as well.
    * 
    * @return a {@link StatementList} AST object.
    */
+   private StatementList lower(CruxParser.StatementBlockContext statementBlock) {
+     symTab.enter();
 
-  /*
-   * private StatementList lower(CruxParser.StatementBlockContext statementBlock) { }
-   */
+
+     var stList = lower(statementBlock.statementList());
+
+     symTab.exit();
+
+     return stList;
+
+   }
+
 
   /**
    * A parse tree visitor to create AST nodes derived from {@link Declaration}
@@ -84,10 +107,14 @@ public final class ParseTreeLower {
      * @return an AST {@link VariableDeclaration}
      */
 
-    /*
-     * @Override 
-     * public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) { }
-     */
+     @Override
+     public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+//       System.out.println("Here end");
+
+       return new VariableDeclaration(makePosition(ctx), symbol);
+     }
+
 
     /**
      * Visit a parse tree array declaration and creates an AST {@link ArrayDeclaration}
@@ -106,10 +133,29 @@ public final class ParseTreeLower {
      * @return an AST {@link FunctionDefinition}
      */
 
-    /*
-     * @Override
-     * public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) { }
-     */
+    @Override
+    public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) {
+      var type = ctx.type();
+      var identifier = ctx.Identifier().toString();
+
+      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+
+      ArrayList<Symbol> paramList = new ArrayList<Symbol> ();
+
+      symTab.enter();
+
+      for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {
+
+        var parm = symTab.add(makePosition(ctx), context.Identifier().getText(), new IntType());
+        paramList.add(parm);
+      }
+
+      var statementList = lower(ctx.statementBlock().statementList());
+
+      symTab.exit();
+      return new FunctionDefinition(makePosition(ctx), symbol, paramList, statementList);
+    }
+
   }
 
 

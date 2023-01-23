@@ -97,6 +97,7 @@ public final class SymbolTable {
 
   void enter() {
     //TODO
+    symbolScopes.add(new HashMap<String, Symbol>());
   }
 
   /**
@@ -105,6 +106,8 @@ public final class SymbolTable {
 
   void exit() {
     //TODO
+    symbolScopes.remove(symbolScopes.size() - 1);
+
   }
 
   /**
@@ -113,6 +116,22 @@ public final class SymbolTable {
    */
   Symbol add(Position pos, String name, Type type) {
     //TODO
+
+    int index = symbolScopes.size() - 1;
+
+    if (symbolScopes.size() > 0) {
+      Map<String, Symbol> recentScope = symbolScopes.get(index);
+
+      if (!recentScope.containsKey(name)) {
+        recentScope.put(name, new Symbol(name, type));
+
+        symbolScopes.set(index, recentScope);
+
+      }
+      return recentScope.get(name);
+
+      //return null;
+    }
     return null;
   }
 
@@ -136,6 +155,12 @@ public final class SymbolTable {
    */
   private Symbol find(String name) {
     //TODO
+    for(int i = symbolScopes.size() - 1; i >= 0; i--) {
+
+      if (symbolScopes.get(i).containsKey(name)) {
+        return symbolScopes.get(i).get(name);
+      }
+    }
     return null;
   }
 }
