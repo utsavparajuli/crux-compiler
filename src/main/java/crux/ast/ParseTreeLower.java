@@ -69,7 +69,16 @@ public final class ParseTreeLower {
    * @return a {@link StatementList} AST object.
    */
 
-  private StatementList lower(CruxParser.StatementListContext statementList) { }
+  private StatementList lower(CruxParser.StatementListContext statementList) {
+    ArrayList<Statement> list = new ArrayList<Statement> ();
+
+    for(CruxParser.StatementContext context: statementList.statement()) {
+      Statement node = context.accept(statementVisitor);
+      list.add(node);
+    }
+
+    return new StatementList(makePosition(statementList.getParent()), list);
+  }
 
   /**
    * Similar to {@link #lower(CruxParser.StatementListContext)}, but handles symbol table as well.
@@ -93,8 +102,8 @@ public final class ParseTreeLower {
 
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
-       VariableDeclaration var = ctx.accept(declarationVisitor);
-       return null;
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+       return new VariableDeclaration(makePosition(ctx), symbol);
      }
 
 
@@ -115,10 +124,16 @@ public final class ParseTreeLower {
      * @return an AST {@link FunctionDefinition}
      */
 
-    /*
-     * @Override
-     * public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) { }
-     */
+    @Override
+    public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) {
+      var type = ctx.type();
+      var identifier = ctx.Identifier().toString();
+
+      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+
+      return null;
+    }
+
   }
 
 
