@@ -91,10 +91,12 @@ public final class ParseTreeLower {
      * @return an AST {@link VariableDeclaration}
      */
 
-    /*
-     * @Override 
-     * public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) { }
-     */
+     @Override
+     public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
+       VariableDeclaration var = ctx.accept(declarationVisitor);
+       return null;
+     }
+
 
     /**
      * Visit a parse tree array declaration and creates an AST {@link ArrayDeclaration}
