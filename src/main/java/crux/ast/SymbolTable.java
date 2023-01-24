@@ -84,6 +84,8 @@ public final class SymbolTable {
 
   SymbolTable(PrintStream err) {
     this.err = err;
+    enter();
+    add(new Position(0), "printInt", new VoidType());
     //TODO
   }
 
