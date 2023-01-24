@@ -109,7 +109,8 @@ public final class ParseTreeLower {
 
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
-       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new IntType() );
+
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new IntType());
 //       System.out.println("Here end");
 
        return new VariableDeclaration(makePosition(ctx), symbol);
