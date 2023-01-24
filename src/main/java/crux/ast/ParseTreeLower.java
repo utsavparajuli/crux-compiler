@@ -214,21 +214,17 @@ public final class ParseTreeLower {
      @Override
      public Statement visitCallStatement(CruxParser.CallStatementContext ctx) {
 
-       var funcName = ctx.callExpression().Identifier().getText();
-       var pos = makePosition(ctx);
+       System.out.println("print call statement");
 
-       var symbol = symTab.lookup(pos, funcName);
+       var st = expressionVisitor.visitCallExpression(ctx.callExpression());
 
-       ArrayList<Expression> list = new ArrayList<Expression> ();
-
-       for(CruxParser.Expression0Context context: ctx.callExpression().expressionList().expression0()) {
-         Expression node = context.accept(expressionVisitor);
-         list.add(node);
-       }
-
-       return new Call(pos, symbol, list);
+//       var temp = ctx.callExpression();
 
 
+       System.out.println("print call 2");
+
+
+       return st;
      }
 
     /**
@@ -285,10 +281,23 @@ public final class ParseTreeLower {
      * grammer
      */
 
-    /*
-     * @Override
-     * public Expression visitExpression0(CruxParser.Expression0Context ctx) { }
-     */
+    //  public OpExpr(Position position, Operation op, Expression left, Expression right)
+     @Override
+     public Expression visitExpression0(CruxParser.Expression0Context ctx) {
+//       if (ctx.op0() == null) {
+//         return ctx.accept(expressionVisitor);
+//       }
+
+       ArrayList<Expression> list = new ArrayList<Expression> ();
+
+       for(CruxParser.Expression1Context context: ctx.expression1()) {
+         Expression node = context.accept(expressionVisitor);
+         list.add(node);
+       }
+
+       return new OpExpr(makePosition(ctx), null, list.get(0), null);
+
+     }
 
     /**
      * Parse Expression1 to OpExpr Node Parsing the expression should be exactly as described in the
@@ -324,9 +333,33 @@ public final class ParseTreeLower {
      * Create an Call Node
      */
 
-    /* @Override
-     * public Call visitCallExpression(CruxParser.CallExpressionContext ctx) { }
-     */
+    @Override
+    public Call visitCallExpression(CruxParser.CallExpressionContext ctx) {
+
+      System.out.println("Print 1");
+
+      var funcName = ctx.Identifier().getText();
+      var pos = makePosition(ctx);
+
+      var symbol = symTab.lookup(pos, funcName);
+
+      ArrayList<Expression> list = new ArrayList<Expression> ();
+
+      System.out.println("Print 2");
+
+
+      for(CruxParser.Expression0Context context: ctx.expressionList().expression0()) {
+        Expression node = context.accept(expressionVisitor);
+        list.add(node);
+      }
+
+      System.out.println("Print 3");
+
+
+      return new Call(pos, symbol, list);
+
+    }
+
 
     /**
      * visitDesignator will check for a name or ArrayAccess FYI it should account for the case when
