@@ -109,7 +109,7 @@ public final class ParseTreeLower {
 
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
-       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new IntType() );
 //       System.out.println("Here end");
 
        return new VariableDeclaration(makePosition(ctx), symbol);
@@ -210,10 +210,25 @@ public final class ParseTreeLower {
      * @return an AST {@link Call}
      */
 
-    /*
-     * @Override
-     * public Statement visitCallStatement(CruxParser.CallStatementContext ctx) { }
-     */
+     @Override
+     public Statement visitCallStatement(CruxParser.CallStatementContext ctx) {
+
+       var funcName = ctx.callExpression().Identifier().getText();
+       var pos = makePosition(ctx);
+
+       var symbol = symTab.lookup(pos, funcName);
+
+       ArrayList<Expression> list = new ArrayList<Expression> ();
+
+       for(CruxParser.Expression0Context context: ctx.callExpression().expressionList().expression0()) {
+         Expression node = context.accept(expressionVisitor);
+         list.add(node);
+       }
+
+       return new Call(pos, symbol, list);
+
+
+     }
 
     /**
      * Visit a parse tree if-else branch and create an AST {@link IfElseBranch}. The template code

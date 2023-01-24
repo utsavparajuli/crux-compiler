@@ -85,6 +85,7 @@ public final class SymbolTable {
   SymbolTable(PrintStream err) {
     this.err = err;
     //TODO
+
   }
 
   boolean hasEncounteredError() {
