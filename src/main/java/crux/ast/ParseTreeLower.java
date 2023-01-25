@@ -214,15 +214,9 @@ public final class ParseTreeLower {
      @Override
      public Statement visitCallStatement(CruxParser.CallStatementContext ctx) {
 
-       System.out.println("print call statement");
-
        var st = expressionVisitor.visitCallExpression(ctx.callExpression());
 
 //       var temp = ctx.callExpression();
-
-
-       System.out.println("print call 2");
-
 
        return st;
      }
@@ -284,18 +278,26 @@ public final class ParseTreeLower {
     //  public OpExpr(Position position, Operation op, Expression left, Expression right)
      @Override
      public Expression visitExpression0(CruxParser.Expression0Context ctx) {
-//       if (ctx.op0() == null) {
-//         return ctx.accept(expressionVisitor);
-//       }
-
-       ArrayList<Expression> list = new ArrayList<Expression> ();
-
-       for(CruxParser.Expression1Context context: ctx.expression1()) {
-         Expression node = context.accept(expressionVisitor);
-         list.add(node);
+       if (ctx.op0() == null) {
+         return ctx.expression1(0).accept(expressionVisitor);
        }
 
-       return new OpExpr(makePosition(ctx), null, list.get(0), null);
+       //We expression1 op0 expression1 case
+       Expression lhs = ctx.expression1(0).accept(expressionVisitor);
+       CruxParser.Op0Context op0 = ctx.op0();
+
+
+       Operation op;
+
+       if (op0.EQUAL() != null) {
+         op = Operation.EQ;
+       } else if (op0.GREATER_EQUAL() != null){
+         op = Operation.GE;
+       }
+       else {
+         op = Operation.NE;
+       }
+       return new OpExpr(makePosition(ctx), op, lhs, lhs);
 
      }
 
@@ -304,30 +306,66 @@ public final class ParseTreeLower {
      * grammer
      */
 
-    /*
-     * @Override
-     * public Expression visitExpression1(CruxParser.Expression1Context ctx) { }
-     */
+
+     @Override
+     public Expression visitExpression1(CruxParser.Expression1Context ctx) {
+       //Handling Add or Sub
+       if (ctx.op1() == null) {
+         //We are expression2 case
+         return ctx.expression2().accept(expressionVisitor);
+       } else {
+         //We expression1 op1 expression2 case
+         Expression lhs = ctx.expression1().accept(expressionVisitor);
+         Expression rhs = ctx.expression2().accept(expressionVisitor);
+         CruxParser.Op1Context op1 = ctx.op1();
+         Operation op = (op1.ADD() != null) ? Operation.ADD : Operation.SUB;
+         return new OpExpr(makePosition(ctx), op, lhs, rhs);
+       }
+     }
 
     /**
      * Parse Expression2 to OpExpr Node Parsing the expression should be exactly as described in the
      * grammer
      */
-    
-    /*
-     * @Override
-     * public Expression visitExpression2(CruxParser.Expression2Context ctx) { }
-     */
+
+     @Override
+     public Expression visitExpression2(CruxParser.Expression2Context ctx) {
+       //Handling Mul or Div
+       if (ctx.op2() == null) {
+         //We are expression3 case
+         return ctx.expression3().accept(expressionVisitor);
+       } else {
+         //We have the expression2 op2 expression3 case
+         Expression lhs = ctx.expression2().accept(expressionVisitor);
+         Expression rhs = ctx.expression3().accept(expressionVisitor);
+         CruxParser.Op2Context op2 = ctx.op2();
+         Operation op = (op2.MUL() != null) ? Operation.MULT : Operation.DIV;
+         return new OpExpr(makePosition(ctx), op, lhs, rhs);
+       }
+     }
+
 
     /**
      * Parse Expression3 to OpExpr Node Parsing the expression should be exactly as described in the
      * grammer
      */
 
-    /*
-     * @Override
-     * public Expression visitExpression3(CruxParser.Expression3Context ctx) { }
-     */
+     @Override
+     public Expression visitExpression3(CruxParser.Expression3Context ctx) {
+       if (ctx.designator() != null) {
+         return ctx.designator().accept(expressionVisitor);
+       } else if (ctx.literal() != null) {
+         return ctx.literal().accept(expressionVisitor);
+       } else if (ctx.NOT() != null) {
+         return  ctx.expression3().accept(expressionVisitor);
+       } else if (ctx.callExpression() != null) {
+         return ctx.callExpression().accept(expressionVisitor);
+       }
+       else {
+         return ctx.expression0().accept(expressionVisitor);
+       }
+     }
+
 
     /**
      * Create an Call Node
@@ -336,8 +374,6 @@ public final class ParseTreeLower {
     @Override
     public Call visitCallExpression(CruxParser.CallExpressionContext ctx) {
 
-      System.out.println("Print 1");
-
       var funcName = ctx.Identifier().getText();
       var pos = makePosition(ctx);
 
@@ -345,16 +381,12 @@ public final class ParseTreeLower {
 
       ArrayList<Expression> list = new ArrayList<Expression> ();
 
-      System.out.println("Print 2");
 
-
+      var temp = ctx.expressionList().accept(expressionVisitor);
       for(CruxParser.Expression0Context context: ctx.expressionList().expression0()) {
         Expression node = context.accept(expressionVisitor);
         list.add(node);
       }
-
-      System.out.println("Print 3");
-
 
       return new Call(pos, symbol, list);
 
@@ -366,16 +398,20 @@ public final class ParseTreeLower {
      * the designator was dereferenced
      */
 
-    /* @Override
-     * public Expression visitDesignator(CruxParser.DesignatorContext ctx) { }
-     */
+    @Override
+    public Expression visitDesignator(CruxParser.DesignatorContext ctx) {
+      return null;
+    }
 
     /**
      * Create an Literal Node
      */
 
-    /* @Override
-     * public Expression visitLiteral(CruxParser.LiteralContext ctx) { }
-     */
+    @Override
+    public Expression visitLiteral(CruxParser.LiteralContext ctx) {
+      String number = ctx.getText();
+      Integer i = Integer.valueOf(number);
+      return new LiteralInt(makePosition(ctx), i);
+    }
   }
 }
