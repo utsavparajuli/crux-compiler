@@ -23,7 +23,6 @@ public final class ParseTreeLower {
   private final DeclarationVisitor declarationVisitor = new DeclarationVisitor();
   private final StatementVisitor statementVisitor = new StatementVisitor();
   private final ExpressionVisitor expressionVisitor = new ExpressionVisitor();
-
   private final SymbolTable symTab;
 
   public ParseTreeLower(PrintStream err) {
