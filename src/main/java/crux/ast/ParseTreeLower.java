@@ -87,8 +87,11 @@ public final class ParseTreeLower {
    private StatementList lower(CruxParser.StatementBlockContext statementBlock) {
      symTab.enter();
 
+    StatementList stList = new StatementList(null, new ArrayList<Statement>());
 
-     var stList = lower(statementBlock.statementList());
+     if (statementBlock != null) {
+       stList = lower(statementBlock.statementList());
+     }
 
      symTab.exit();
 
@@ -222,10 +225,16 @@ public final class ParseTreeLower {
      * @return an AST {@link Assignment}
      */
 
-    /*
-     * @Override
-     * public Statement visitAssignmentStatementNoSemi(CruxParser.AssignmentStatementNoSemiContext ctx) { }
-     */
+
+     @Override
+     public Statement visitAssignmentStatementNoSemi(CruxParser.AssignmentStatementNoSemiContext ctx) {
+       var location = ctx.designator().accept(expressionVisitor);
+
+       var value = ctx.expression0().accept(expressionVisitor);
+
+       return new Assignment(makePosition(ctx), location, value);
+     }
+
 
     /**
      * Visit a parse tree call statement and create an AST {@link Call}. Since {@link Call} is both
@@ -239,11 +248,7 @@ public final class ParseTreeLower {
      @Override
      public Statement visitCallStatement(CruxParser.CallStatementContext ctx) {
 
-       var st = expressionVisitor.visitCallExpression(ctx.callExpression());
-
-//       var temp = ctx.callExpression();
-
-       return st;
+       return expressionVisitor.visitCallExpression(ctx.callExpression());
      }
 
     /**
@@ -254,23 +259,41 @@ public final class ParseTreeLower {
      * @return an AST {@link IfElseBranch}
      */
 
-    /*
-     * @Override
-     * public Statement visitIfStatement(CruxParser.IfStatementContext ctx) { }
-     */
+     @Override
+     public Statement visitIfStatement(CruxParser.IfStatementContext ctx) {
+      // IfElseBranch(Position position, Expression condition, StatementList thenBlock, StatementList elseBlock)
+
+       var condition = ctx.expression0().accept(expressionVisitor);
+       var thenBlock = lower(  ctx.statementBlock(0)   );
+       var elseBlock = lower( ctx.statementBlock(1)   );
+
+       return new IfElseBranch(makePosition(ctx), condition, thenBlock, elseBlock);
+     }
+
 
     /**
      * Visit a parse tree for loop and create an AST {@link For}. You'll going to use a similar
      * techniques as {@link #visitIfStatement(CruxParser.IfStatementContext)} to decompose this
      * construction.
      * 
-     * @return an AST {@link Loop}
+     * @return an AST {@link For}
      */
 
-    /*
-     * @Override
-     * public Statement visitForStatement(CruxParser.ForStatementContext ctx) { }
-     */
+     @Override
+     public Statement visitForStatement(CruxParser.ForStatementContext ctx) {
+       //For(Position position, Assignment init, Expression cond, Assignment increment,
+               //StatementList body)
+
+       Assignment init = (Assignment) visitAssignmentStatement(ctx.assignmentStatement());
+       Expression cond = ctx.expression0().accept(expressionVisitor);
+       Assignment increment = (Assignment) visitAssignmentStatementNoSemi(ctx.assignmentStatementNoSemi());
+       StatementList body = lower(ctx.statementBlock());
+
+       return new For(makePosition(ctx), init, cond, increment, body);
+
+
+     }
+
 
     /**
      * Visit a parse tree return statement and create an AST {@link Return}. Here we show a simple
@@ -279,19 +302,27 @@ public final class ParseTreeLower {
      * @return an AST {@link Return}
      */
 
-    /*
-     * @Override
-     * public Statement visitReturnStatement(CruxParser.ReturnStatementContext ctx) { }
-     */
+     @Override
+     public Statement visitReturnStatement(CruxParser.ReturnStatementContext ctx) {
+       //  public Return(Position position, Expression value) {
+
+       var value = ctx.expression0().accept(expressionVisitor);
+
+       return new Return(makePosition(ctx), value);
+     }
+
 
     /**
      * Creates a Break node
      */
 
-    /*
-     * @Override
-     * public Statement visitBreakStatement(CruxParser.BreakStatementContext ctx) { }
-     */
+     @Override
+     public Statement visitBreakStatement(CruxParser.BreakStatementContext ctx) {
+       symTab.exit();
+
+       return new Break(makePosition(ctx));
+     }
+
   }
 
   private final class ExpressionVisitor extends CruxBaseVisitor<Expression> {
