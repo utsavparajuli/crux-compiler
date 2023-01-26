@@ -449,7 +449,11 @@ public final class ParseTreeLower {
      public Expression visitExpression3(CruxParser.Expression3Context ctx) {
 
        if (ctx.NOT() != null) {
-         return ctx.expression3().accept(expressionVisitor);
+         //System.out.println(ctx.expression3().getText());
+
+         var exp = ctx.expression3().accept(expressionVisitor);
+
+         return new OpExpr(makePosition(ctx), Operation.LOGIC_NOT, exp, null);
        }
        else if (ctx.designator() != null) {
          return ctx.designator().accept(expressionVisitor);
