@@ -136,10 +136,10 @@ public final class ParseTreeLower {
 
     @Override
     public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) {
-      var type = ctx.type();
-      var identifier = ctx.Identifier().toString();
 
-      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), null);
+      Type type = (ctx.type().getText().equals("int")) ? new IntType() : new VoidType();
+
+      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new FuncType(null, type));
 
       ArrayList<Symbol> paramList = new ArrayList<Symbol> ();
 
@@ -147,7 +147,10 @@ public final class ParseTreeLower {
 
       for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {
 
-        var parm = symTab.add(makePosition(ctx), context.Identifier().getText(), new IntType());
+
+        Type argType = (ctx.type().getText().equals("int")) ? new IntType() : new BoolType();
+
+        var parm = symTab.add(makePosition(ctx), context.Identifier().getText(), argType);
         paramList.add(parm);
       }
 
@@ -409,9 +412,18 @@ public final class ParseTreeLower {
 
     @Override
     public Expression visitLiteral(CruxParser.LiteralContext ctx) {
-      String number = ctx.getText();
-      Integer i = Integer.valueOf(number);
-      return new LiteralInt(makePosition(ctx), i);
+
+      if(ctx.getText().equals("true")) {
+        return new LiteralBool(makePosition(ctx), true);
+      }
+      else if (ctx.getText().equals("false")) {
+        return new LiteralBool(makePosition(ctx), false);
+      }
+      else {
+        String number = ctx.getText();
+        int i = Integer.parseInt(number);
+        return new LiteralInt(makePosition(ctx), i);
+      }
     }
   }
 }

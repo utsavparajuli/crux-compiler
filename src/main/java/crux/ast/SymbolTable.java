@@ -5,9 +5,7 @@ import crux.ast.types.*;
 
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Symbol table will map each symbol from Crux source code to its declaration or appearance in the
@@ -85,7 +83,9 @@ public final class SymbolTable {
   SymbolTable(PrintStream err) {
     this.err = err;
     enter();
-    add(new Position(0), "printInt", new VoidType());
+    add(new Position(0), "printInt", new FuncType(new TypeList(Collections.singletonList(new IntType())), new VoidType()));
+    add(new Position(0), "printBool", new FuncType(new TypeList(Collections.singletonList(new BoolType())), new VoidType()));
+
 
     //TODO
 
