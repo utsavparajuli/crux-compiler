@@ -123,10 +123,22 @@ public final class ParseTreeLower {
      * @return an AST {@link ArrayDeclaration}
      */
 
-    /*
-     * @Override
-     * public Declaration visitArrayDeclaration(CruxParser.ArrayDeclarationContext ctx) { }
-     */
+     @Override
+     public Declaration visitArrayDeclaration(CruxParser.ArrayDeclarationContext ctx) {
+      //  public ArrayDeclaration(Position position, Symbol symbol) {
+
+       Type argType = (ctx.type().getText().equals("int")) ? new IntType() : new BoolType();
+
+       String identifier = ctx.Identifier().getText();
+
+       String arSize = ctx.Integer().getText();
+
+       int size = Integer.parseInt(arSize);
+
+       Symbol arrSymb = symTab.add(makePosition(ctx), identifier, argType);
+
+       return new ArrayDeclaration(makePosition(ctx), arrSymb);
+     }
 
     /**
      * Visit a parse tree function definition and create an AST {@link FunctionDefinition}
@@ -178,10 +190,11 @@ public final class ParseTreeLower {
      * @return an AST {@link VariableDeclaration}
      */
 
-    /*
-     * @Override
-     * public Statement visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) { }
-     */
+     @Override
+     public Statement visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
+       return declarationVisitor.visitVariableDeclaration(ctx);
+     }
+
     
     /**
      * Visit a parse tree assignment statement and create an AST {@link Assignment}
@@ -189,10 +202,19 @@ public final class ParseTreeLower {
      * @return an AST {@link Assignment}
      */
 
-    /*
-     * @Override
-     * public Statement visitAssignmentStatement(CruxParser.AssignmentStatementContext ctx) { }
-     */
+
+     @Override
+     public Statement visitAssignmentStatement(CruxParser.AssignmentStatementContext ctx) {
+       //  public Assignment(Position position, Expression location, Expression value) {
+       var location = ctx.designator().accept(expressionVisitor);
+
+
+       var value = ctx.expression0().accept(expressionVisitor);
+
+       return new Assignment(makePosition(ctx), location, value);
+
+     }
+
 
     /**
      * Visit a parse tree assignment nosemi statement and create an AST {@link Assignment}
@@ -287,6 +309,14 @@ public final class ParseTreeLower {
 
        //We expression1 op0 expression1 case
        Expression lhs = ctx.expression1(0).accept(expressionVisitor);
+       Expression rhs = ctx.expression1(1).accept(expressionVisitor);
+
+//       if(ctx.expression1().size() >= 2) {
+//         rhs = ctx.expression1(1).accept(expressionVisitor);
+//       } else {
+//         rhs = lhs;
+//       }
+
        CruxParser.Op0Context op0 = ctx.op0();
 
 
@@ -297,10 +327,20 @@ public final class ParseTreeLower {
        } else if (op0.GREATER_EQUAL() != null){
          op = Operation.GE;
        }
+       else if (op0.GREATER_THAN() != null){
+         op = Operation.GT;
+       }
+       else if (op0.LESS_THAN() != null){
+
+         op = Operation.LT;
+       }
+       else if (op0.LESSER_EQUAL() != null){
+         op = Operation.LE;
+       }
        else {
          op = Operation.NE;
        }
-       return new OpExpr(makePosition(ctx), op, lhs, lhs);
+       return new OpExpr(makePosition(ctx), op, lhs, rhs);
 
      }
 
@@ -321,7 +361,18 @@ public final class ParseTreeLower {
          Expression lhs = ctx.expression1().accept(expressionVisitor);
          Expression rhs = ctx.expression2().accept(expressionVisitor);
          CruxParser.Op1Context op1 = ctx.op1();
-         Operation op = (op1.ADD() != null) ? Operation.ADD : Operation.SUB;
+
+         Operation op;
+
+         if (op1.ADD() != null) {
+           op = Operation.ADD;
+         } else if (op1.SUB() != null){
+           op = Operation.SUB;
+         }
+         else {
+           op = Operation.LOGIC_OR;
+         }
+
          return new OpExpr(makePosition(ctx), op, lhs, rhs);
        }
      }
@@ -342,7 +393,17 @@ public final class ParseTreeLower {
          Expression lhs = ctx.expression2().accept(expressionVisitor);
          Expression rhs = ctx.expression3().accept(expressionVisitor);
          CruxParser.Op2Context op2 = ctx.op2();
-         Operation op = (op2.MUL() != null) ? Operation.MULT : Operation.DIV;
+         Operation op;
+
+         if (op2.MUL() != null) {
+           op = Operation.MULT;
+         } else if (op2.DIV() != null){
+           op = Operation.DIV;
+         }
+         else {
+           op = Operation.LOGIC_AND;
+         }
+
          return new OpExpr(makePosition(ctx), op, lhs, rhs);
        }
      }
@@ -355,14 +416,18 @@ public final class ParseTreeLower {
 
      @Override
      public Expression visitExpression3(CruxParser.Expression3Context ctx) {
-       if (ctx.designator() != null) {
+
+       if (ctx.NOT() != null) {
+         return ctx.expression3().accept(expressionVisitor);
+       }
+       else if (ctx.designator() != null) {
          return ctx.designator().accept(expressionVisitor);
-       } else if (ctx.literal() != null) {
-         return ctx.literal().accept(expressionVisitor);
-       } else if (ctx.NOT() != null) {
-         return  ctx.expression3().accept(expressionVisitor);
-       } else if (ctx.callExpression() != null) {
+       }
+       else if (ctx.callExpression() != null) {
          return ctx.callExpression().accept(expressionVisitor);
+       }
+       else if (ctx.literal() != null) {
+         return ctx.literal().accept(expressionVisitor);
        }
        else {
          return ctx.expression0().accept(expressionVisitor);
@@ -403,7 +468,33 @@ public final class ParseTreeLower {
 
     @Override
     public Expression visitDesignator(CruxParser.DesignatorContext ctx) {
-      return null;
+//      String name = ctx.getText();
+//      Symbol symbol = getSymbol(name);
+//      return new VarNode(symbol);
+//
+//      return null;
+
+      String identifier = ctx.Identifier().getText();
+
+      Expression idx = null;
+
+      var base = symTab.lookup(makePosition(ctx), identifier);
+
+      //  public ArrayAccess(Position position, Symbol base, Expression index) {
+      if (ctx.expression0() != null) {
+        idx = ctx.expression0().accept(expressionVisitor);
+
+
+
+        return new ArrayAccess(makePosition(ctx), base, idx);
+      }
+      else {
+        return new VarAccess(makePosition(ctx), base);
+      }
+
+
+
+
     }
 
     /**
