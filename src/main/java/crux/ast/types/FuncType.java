@@ -25,6 +25,16 @@ public final class FuncType extends Type implements java.io.Serializable {
   }
 
   @Override
+  Type call(Type args) {
+    return null;
+  }
+
+  @Override
+  public boolean equivalent(Type that) {
+    return that.getClass() == ret.getClass();
+  }
+
+  @Override
   public String toString() {
     return "func(" + args + "):" + ret;
   }

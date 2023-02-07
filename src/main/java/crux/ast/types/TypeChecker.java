@@ -83,11 +83,23 @@ public final class TypeChecker {
 
     @Override
     public Void visit(DeclarationList declarationList) {
+      var children = declarationList.getChildren();
+
+      for (var n: children) {
+        System.out.println(n.getClass());
+        visit((FunctionDefinition) n);
+      }
       return null;
     }
 
     @Override
     public Void visit(FunctionDefinition functionDefinition) {
+
+      var a = functionDefinition.getStatements();
+
+      var b = functionDefinition.getParameters();
+
+      visit(a);
       return null;
     }
 
