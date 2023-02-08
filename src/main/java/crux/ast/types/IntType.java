@@ -54,6 +54,27 @@ public final class IntType extends Type implements java.io.Serializable {
   }
 
   @Override
+  Type compare(Type that) {
+    if(this.equivalent(that)) {
+      return new IntType();
+    } else
+    {
+      return super.compare(that);
+    }
+  }
+
+
+  @Override
+  Type assign(Type source) {
+    if(this.equivalent(source)) {
+      return new IntType();
+    } else {
+      return super.assign(source);
+
+    }
+  }
+
+  @Override
   public boolean equivalent(Type that) {
     return that.getClass() == IntType.class;
   }
