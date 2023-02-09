@@ -236,7 +236,9 @@ public final class TypeChecker {
       var oper = op.getOp();
 
 
-      rhs.accept(this);
+      if(rhs != null) {
+        rhs.accept(this);
+      }
 
       lhs.accept(this);
 
@@ -249,12 +251,13 @@ public final class TypeChecker {
       (oper.equals(OpExpr.Operation.GE) || oper.equals(OpExpr.Operation.LE) ||
                       oper.equals(OpExpr.Operation.GT) || oper.equals(OpExpr.Operation.LT) ||
       oper.equals(OpExpr.Operation.LOGIC_AND) || oper.equals(OpExpr.Operation.NE) ||
-                      oper.equals(OpExpr.Operation.EQ) || oper.equals(OpExpr.Operation.LOGIC_OR))
+                      oper.equals(OpExpr.Operation.EQ) || oper.equals(OpExpr.Operation.LOGIC_OR) ||
+      oper.equals(OpExpr.Operation.LOGIC_NOT))
       {
         setNodeType(op, new BoolType());
       }
       else {
-        setNodeType(op, new BoolType());
+        addTypeError(op, "Invalid operation used");
       }
       //oper.toString()
       return null;
