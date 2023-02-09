@@ -112,7 +112,9 @@ public final class ParseTreeLower {
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
 
-       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new IntType());
+       Type varType = (ctx.type().getText().equals("int")) ? new IntType() : new BoolType();
+
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), varType);
 //       System.out.println("Here end");
 
        return new VariableDeclaration(makePosition(ctx), symbol);
@@ -137,7 +139,7 @@ public final class ParseTreeLower {
 
        int size = Integer.parseInt(arSize);
 
-       Symbol arrSymb = symTab.add(makePosition(ctx), identifier, argType);
+       Symbol arrSymb = symTab.add(makePosition(ctx), identifier, new ArrayType(size, argType));
 
        return new ArrayDeclaration(makePosition(ctx), arrSymb);
      }
@@ -151,9 +153,27 @@ public final class ParseTreeLower {
     @Override
     public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) {
 
-      Type type = (ctx.type().getText().equals("int")) ? new IntType() : new VoidType();
+      Type type;
 
-      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new FuncType(null, type));
+      if (ctx.type().getText().equals("int")) {
+        type = new IntType();
+      }
+      else if (ctx.type().getText().equals("bool")) {
+        type = new BoolType();
+      }
+      else {
+        type = new VoidType();
+      }
+      TypeList tl = new TypeList();
+
+      for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {
+
+
+        Type argType = (context.type().getText().equals("int")) ? new IntType() : new BoolType();
+        tl.append(argType);
+      }
+
+      Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new FuncType(tl, type));
 
       ArrayList<Symbol> paramList = new ArrayList<Symbol> ();
 
@@ -162,7 +182,7 @@ public final class ParseTreeLower {
       for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {
 
 
-        Type argType = (ctx.type().getText().equals("int")) ? new IntType() : new BoolType();
+        Type argType = (context.type().getText().equals("int")) ? new IntType() : new BoolType();
 
         var parm = symTab.add(makePosition(ctx), context.Identifier().getText(), argType);
         paramList.add(parm);
