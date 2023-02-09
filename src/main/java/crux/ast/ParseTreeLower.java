@@ -112,7 +112,9 @@ public final class ParseTreeLower {
      @Override
      public VariableDeclaration visitVariableDeclaration(CruxParser.VariableDeclarationContext ctx) {
 
-       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), new IntType());
+       Type varType = (ctx.type().getText().equals("int")) ? new IntType() : new BoolType();
+
+       Symbol symbol = symTab.add(makePosition(ctx), ctx.Identifier().getText(), varType);
 //       System.out.println("Here end");
 
        return new VariableDeclaration(makePosition(ctx), symbol);
@@ -151,8 +153,17 @@ public final class ParseTreeLower {
     @Override
     public Declaration visitFunctionDefinition(CruxParser.FunctionDefinitionContext ctx) {
 
-      Type type = (ctx.type().getText().equals("int")) ? new IntType() : new VoidType();
+      Type type;
 
+      if (ctx.type().getText().equals("int")) {
+        type = new IntType();
+      }
+      else if (ctx.type().getText().equals("bool")) {
+        type = new BoolType();
+      }
+      else {
+        type = new VoidType();
+      }
       TypeList tl = new TypeList();
 
       for(CruxParser.ParameterContext context: ctx.parameterList().parameter()) {

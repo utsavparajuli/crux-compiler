@@ -41,6 +41,16 @@ public final class ArrayType extends Type implements java.io.Serializable {
     }
   }
 
+//  @Override
+//  Type assign(Type source) {
+//    if(this.equivalent(source)) {
+//      return new BoolType();
+//    } else {
+//      return super.assign(source);
+//
+//    }
+//  }
+
   @Override
   public boolean equivalent(Type that) {
     return that.getClass() == IntType.class;

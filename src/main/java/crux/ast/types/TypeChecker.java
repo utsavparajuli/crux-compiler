@@ -91,7 +91,9 @@ public final class TypeChecker {
       children.get(0).accept(this);
       children.get(1).accept(this);
 
+      var location = ((BaseNode)assignment.getLocation()).getType();
 
+      location.assign(((BaseNode)assignment.getValue()).getType());
       //assign not working
 
 
@@ -115,7 +117,13 @@ public final class TypeChecker {
       //if (callee.call(call.getType()))
       for(var arg: call.getArguments()) {
         arg.accept(this);
-        tl.append(getType(arg));
+        if (arg.getClass().equals(Call.class)) {
+          FuncType nestedCall = (FuncType)((Call) arg).getCallee().getType();
+          tl.append(nestedCall.getRet());
+        }
+        else {
+          tl.append(getType(arg));
+        }
       }
 
       if (!callee.getArgs().equivalent(tl)) {
@@ -123,6 +131,7 @@ public final class TypeChecker {
       }
 //call.getArguments()
       //callee.call(callee.getArgs());
+      setNodeType(call, callee.getRet());
       return null;
     }
 
@@ -148,6 +157,7 @@ public final class TypeChecker {
 
       lastStatementReturns = !functionReturnType.equivalent(new VoidType());
 
+      currentFuncReturnType = functionReturnType;
       if (currentFunctionSymbol.getName().equals("main")) {
         if (lastStatementReturns)
         {
@@ -175,11 +185,24 @@ public final class TypeChecker {
 
     @Override
     public Void visit(IfElseBranch ifElseBranch) {
+      ifElseBranch.getCondition().accept(this);
+
+      ifElseBranch.getThenBlock().accept(this);
+
+      ifElseBranch.getElseBlock().accept(this);
       return null;
     }
 
     @Override
     public Void visit(ArrayAccess access) {
+
+      access.getIndex().accept(this);
+      ArrayType arr = (ArrayType) access.getBase().getType();
+
+      setNodeType(access, arr.getBase());
+
+      //arr.index(access.getBase().getType());
+      arr.index(getType(access));
       return null;
     }
 
@@ -197,6 +220,11 @@ public final class TypeChecker {
 
     @Override
     public Void visit(For forloop) {
+      forloop.getCond().accept(this);
+      forloop.getInit().accept(this);
+      forloop.getIncrement().accept(this);
+      forloop.getBody().accept(this);
+
       return null;
     }
 
@@ -234,6 +262,11 @@ public final class TypeChecker {
 
     @Override
     public Void visit(Return ret) {
+
+      ret.getValue().accept(this);
+//      if(ret.getValue())
+
+
       return null;
     }
 
@@ -255,7 +288,13 @@ public final class TypeChecker {
         addTypeError(variableDeclaration, "Cannot declare var type void");
       }
 
-      setNodeType(variableDeclaration, new IntType());
+      if (variableDeclaration.getSymbol().getType().equivalent(new BoolType())) {
+        setNodeType(variableDeclaration, new BoolType());
+      }
+      else {
+        setNodeType(variableDeclaration, new IntType());
+      }
+
       lastStatementReturns = false;
 
       return null;
