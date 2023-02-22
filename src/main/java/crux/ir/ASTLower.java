@@ -15,6 +15,40 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 class InstPair {
+
+  Instruction start;
+  Instruction end;
+  Value val;
+
+  public InstPair(Instruction start, Instruction end) {
+    this.start = start;
+    this.end = end;
+    val = null;
+  }
+
+
+  public InstPair(Instruction start, Instruction end, Value val) {
+    this.start = start;
+    this.end = end;
+    this.val = val;
+  }
+
+  public InstPair(Instruction inst) {
+    this.start = inst;
+    this.end = inst;
+    val = null;
+
+  }
+
+
+  public void addEdge(Instruction inst) {
+    this.end.setNext(0, inst);
+  }
+
+  public void addEdge(InstPair instPair) {
+    this.end.setNext(0, instPair.start);
+  }
+
 }
 
 
@@ -33,13 +67,27 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   public ASTLower() {}
 
   public Program lower(DeclarationList ast) {
+    mCurrentProgram = new Program();
+
     visit(ast);
     return mCurrentProgram;
   }
 
   @Override
   public InstPair visit(DeclarationList declarationList) {
-    return null;
+
+
+    var children = declarationList.getChildren();
+
+    //declarationList.(accept)
+    for (var child: children) {
+      //declarationList.accept((NodeVisitor<?>) n);
+      child.accept(this);
+    }
+
+    return new InstPair(new NopInst());
+
+    //return null;
   }
 
   /**
@@ -48,12 +96,67 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(FunctionDefinition functionDefinition) {
-    return null;
+
+
+    mCurrentFunction = new Function(functionDefinition.getSymbol().getName(), (FuncType) functionDefinition.getSymbol().getType());
+
+
+    var parameters = functionDefinition.getParameters();
+
+    ArrayList<LocalVar> listVars = new ArrayList<>();
+
+    for(var param : parameters) {
+      var localVar = mCurrentFunction.getTempVar(param.getType());
+
+      listVars.add(localVar);
+
+      mCurrentLocalVarMap.put(param, localVar);
+    }
+
+    mCurrentFunction.setArguments(listVars);
+
+
+    //CurrentFunction.setStart(functionDefinition.getStatements());
+
+
+
+    var v = functionDefinition.getStatements().accept(this);
+
+    mCurrentFunction.setStart(v.start);
+
+    mCurrentProgram.addFunction(mCurrentFunction);
+
+
+
+    mCurrentFunction = null;
+    mCurrentLocalVarMap = null;
+
+
+    return v;
+
+
+    //return null;
   }
 
   @Override
   public InstPair visit(StatementList statementList) {
-    return null;
+    var statements = statementList.getChildren();
+
+    InstPair func_cfg = new InstPair(new NopInst());
+
+
+    //Init main_inst_pair
+    for(var statement : statements) {
+      //main_inst_pair.addEdge( what ever the accept returrns )
+      var instP = statement.accept(this);
+      func_cfg.addEdge(instP);
+    }
+
+    //return the main_inst_pair
+    return func_cfg;
+
+    //return null;
+
   }
 
   /**
@@ -95,7 +198,28 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Call call) {
-    return null;
+
+  ArrayList<LocalVar> args = new ArrayList<>();
+
+
+  var v = (FuncType) call.getCallee().getType();
+
+  args.add(mCurrentFunction.getTempVar(new IntType()));
+
+  for(var arg: call.getArguments()) {
+    //Instruction or InstPair
+    var ret = arg.accept(this);
+
+    //add the arg to  args but  as a LocalVar.
+  }
+
+    CallInst callInst = new CallInst(call.getCallee(), args);
+
+
+
+
+
+    return new InstPair(callInst);
   }
 
   /**
