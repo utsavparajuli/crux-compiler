@@ -19,7 +19,7 @@ class InstPair {
   Instruction start;
   Instruction end;
   Value val;
-
+  //write get and set
   public InstPair(Instruction start, Instruction end) {
     this.start = start;
     this.end = end;
@@ -204,15 +204,15 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
   var v = (FuncType) call.getCallee().getType();
 
-  args.add(mCurrentFunction.getTempVar(new IntType()));
+
 
   for(var arg: call.getArguments()) {
     //Instruction or InstPair
     var ret = arg.accept(this);
-
+    args.add(mCurrentFunction.getTempVar(   ret.get.getType()   )); //this is correct use the caller
     //add the arg to  args but  as a LocalVar.
   }
-
+    //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
     CallInst callInst = new CallInst(call.getCallee(), args);
 
 
