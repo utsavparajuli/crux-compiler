@@ -19,7 +19,18 @@ class InstPair {
   Instruction start;
   Instruction end;
   Value val;
+
+
+
   //write get and set
+  public Value getVal() {
+    return val;
+  }
+
+  public void setVal(Value val) {
+    this.val = val;
+  }
+
   public InstPair(Instruction start, Instruction end) {
     this.start = start;
     this.end = end;
@@ -41,13 +52,17 @@ class InstPair {
   }
 
 
-  public void addEdge(Instruction inst) {
+  public Instruction addEdge(Instruction inst) {
     this.end.setNext(0, inst);
+    return inst;
   }
 
-  public void addEdge(InstPair instPair) {
+  public InstPair addEdge(InstPair instPair) {
     this.end.setNext(0, instPair.start);
+    return instPair;
   }
+
+
 
 }
 
@@ -199,27 +214,38 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   @Override
   public InstPair visit(Call call) {
 
-  ArrayList<LocalVar> args = new ArrayList<>();
+    List<LocalVar> callArgs = new ArrayList<>();
+    //var v = (FuncType) call.getCallee().getType();
+
+    ArrayList<InstPair> genTemps = new ArrayList<>();
+
+    for(var arg: call.getArguments()) {
+      //Instruction or InstPair
+      var ret = arg.accept(this);
 
 
-  var v = (FuncType) call.getCallee().getType();
+//      callArgs.add(mCurrentFunction.getTempVar(ret.getVal().getType())); //this is correct use the caller
+      callArgs.add(((CopyInst) ret.start).getDstVar());
+      genTemps.add(ret);
 
-
-
-  for(var arg: call.getArguments()) {
-    //Instruction or InstPair
-    var ret = arg.accept(this);
-    args.add(mCurrentFunction.getTempVar(   ret.get.getType()   )); //this is correct use the caller
-    //add the arg to  args but  as a LocalVar.
-  }
-    //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
-    CallInst callInst = new CallInst(call.getCallee(), args);
+      //add the arg to  args but  as a LocalVar.
+    }
+      //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
+      CallInst callInst = new CallInst(call.getCallee(), callArgs);
 
 
 
 
+      InstPair  retVal = new InstPair(new NopInst());
 
-    return new InstPair(callInst);
+      InstPair tail = retVal;
+
+      for (InstPair temp : genTemps) {
+        tail = tail.addEdge(new InstPair(temp.start));
+      }
+
+      retVal.addEdge(callInst);
+      return retVal;
   }
 
   /**
@@ -256,7 +282,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(LiteralInt literalInt) {
-    return null;
+    var v = mCurrentFunction.getTempVar(new IntType());
+
+    var constRet = IntegerConstant.get(mCurrentProgram, literalInt.getValue());
+
+    return new InstPair(new CopyInst(v,  constRet), new CopyInst(v,  constRet), constRet);
   }
 
   /**
