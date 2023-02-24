@@ -155,18 +155,51 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   public InstPair visit(StatementList statementList) {
     var statements = statementList.getChildren();
 
-    InstPair func_cfg = new InstPair(new NopInst());
+    NopInst startInst = new NopInst();
+    NopInst endInst = new NopInst();
+
+    InstPair func_cfg = new InstPair(startInst, endInst);
 
 
+
+
+    var stateIP = new ArrayList<InstPair>();
+    int counter = 0;
+    Instruction temp = null;
     //Init main_inst_pair
     for(var statement : statements) {
       //main_inst_pair.addEdge( what ever the accept returrns )
+
       var instP = statement.accept(this);
-      func_cfg.addEdge(instP);
+
+      if(counter == 0) {
+        startInst.setNext(0, instP.start);
+//          for (int i = 0; i < instP.start.numNext(); i++) {
+//
+//          }
+        temp = startInst.getNext(0);
+        temp.setNext(0, instP.end);
+      }
+      else {
+        temp = temp.getNext(0);
+        temp.setNext(0, instP.start);
+        temp = temp.getNext(0);
+        temp.setNext(0, instP.end);
+      }
+      counter++;
+
+
+
+//      func_cfg.addEdge(instP);
+//
+//
+//      func_cfg = instP;
     }
 
+
+    return new InstPair(func_cfg.start, new NopInst());
     //return the main_inst_pair
-    return func_cfg;
+//    return func_cfg;
 
     //return null;
 
@@ -235,18 +268,19 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
 
     InstPair retVal;
+    Instruction inst;
     if(!genTemps.isEmpty()) {
-      retVal = new InstPair(genTemps.get(0).start);
+      inst = genTemps.get(0).start;
     }
     else {
-      return new InstPair(callInst);
+      return new InstPair(callInst, new NopInst());
     }
 
 
 
 
 
-    retVal.addEdge(callInst);
+
 
 
 //
@@ -258,7 +292,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //
 //      tail.addEdge(callInst);
 
-    return retVal;
+    return new InstPair(inst, callInst);
   }
 
   /**
@@ -287,7 +321,12 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(LiteralBool literalBool) {
-    return null;
+
+    var v = mCurrentFunction.getTempVar(new BoolType());
+
+    var constRet = BooleanConstant.get(mCurrentProgram, literalBool.getValue());
+
+    return new InstPair(new CopyInst(v,constRet), new CopyInst(v,constRet), constRet);
   }
 
   /**
