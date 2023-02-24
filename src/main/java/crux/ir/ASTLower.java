@@ -52,14 +52,12 @@ class InstPair {
   }
 
 
-  public Instruction addEdge(Instruction inst) {
+  public void addEdge(Instruction inst) {
     this.end.setNext(0, inst);
-    return inst;
   }
 
-  public InstPair addEdge(InstPair instPair) {
+  public void addEdge(InstPair instPair) {
     this.end.setNext(0, instPair.start);
-    return instPair;
   }
 
 
@@ -231,21 +229,36 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       //add the arg to  args but  as a LocalVar.
     }
       //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
-      CallInst callInst = new CallInst(call.getCallee(), callArgs);
+    CallInst callInst = new CallInst(call.getCallee(), callArgs);
 
 
 
 
-      InstPair  retVal = new InstPair(new NopInst());
+    InstPair retVal;
+    if(!genTemps.isEmpty()) {
+      retVal = new InstPair(genTemps.get(0).start);
+    }
+    else {
+      return new InstPair(callInst);
+    }
 
-      InstPair tail = retVal;
 
-      for (InstPair temp : genTemps) {
-        tail = tail.addEdge(new InstPair(temp.start));
-      }
 
-      retVal.addEdge(callInst);
-      return retVal;
+
+
+    retVal.addEdge(callInst);
+
+
+//
+//      InstPair tail = retVal;
+//
+//      for (InstPair temp : genTemps) {
+//        tail = tail.addEdge(temp);
+//      }
+//
+//      tail.addEdge(callInst);
+
+    return retVal;
   }
 
   /**
@@ -286,7 +299,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var constRet = IntegerConstant.get(mCurrentProgram, literalInt.getValue());
 
-    return new InstPair(new CopyInst(v,  constRet), new CopyInst(v,  constRet), constRet);
+    return new InstPair(new CopyInst(v,constRet), new CopyInst(v,constRet), constRet);
   }
 
   /**
