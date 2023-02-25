@@ -137,7 +137,6 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     }
 
     mCurrentFunction.setArguments(listVars);
-    mCurrentProgram.addFunction(mCurrentFunction);
 
 
     //CurrentFunction.setStart(functionDefinition.getStatements());
@@ -148,6 +147,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     mCurrentFunction.setStart(v.start);
 
+    mCurrentProgram.addFunction(mCurrentFunction);
 
 
 
@@ -226,6 +226,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     }
 
 //start and end could be null if the list is empty;
+
+    if(start == null) {
+      start = new NopInst();
+    }
+
     InstPair result = new InstPair (start, end);
 
 
@@ -243,7 +248,14 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(VariableDeclaration variableDeclaration) {
-    return null;
+
+    if (mCurrentFunction == null) {
+      mCurrentProgram.addGlobalVar(new GlobalDecl(variableDeclaration.getSymbol(), IntegerConstant.get(mCurrentProgram, 1)));
+    }
+    else {
+      mCurrentLocalVarMap.put(variableDeclaration.getSymbol(), mCurrentFunction.getTempVar(variableDeclaration.getType()));
+    }
+    return new InstPair(new NopInst());
   }
 
   /**
@@ -251,7 +263,10 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(ArrayDeclaration arrayDeclaration) {
-    return null;
+    mCurrentProgram.addGlobalVar(new GlobalDecl(arrayDeclaration.getSymbol(),
+            IntegerConstant.get(mCurrentProgram, ((ArrayType)arrayDeclaration.getSymbol().getType()).getExtent())));
+
+    return new InstPair(new NopInst());
   }
 
   /**
@@ -289,7 +304,13 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
 
 //      callArgs.add(mCurrentFunction.getTempVar(ret.getVal().getType())); //this is correct use the caller
-      callArgs.add(((CopyInst) ret.start).getDstVar());
+      if (ret.end.getClass().equals(BinaryOperator.class)) {
+        callArgs.add(((BinaryOperator) ret.end).getDst());
+      }
+      else {
+        callArgs.add(((CopyInst) ret.start).getDstVar());
+      }
+
       genTemps.add(ret);
 
       //add the arg to  args but  as a LocalVar.
@@ -309,6 +330,16 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       return new InstPair(callInst, new NopInst());
     }
 
+
+    //works for test 2-3
+    //inst.setNext(0, callInst);
+
+    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class)) {
+      genTemps.get(0).getEnd().setNext(0, callInst);
+    }
+    else {
+      inst.setNext(0, callInst);
+    }
     return new InstPair(inst, callInst);
   }
 
