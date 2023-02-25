@@ -122,7 +122,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
 
     mCurrentFunction = new Function(functionDefinition.getSymbol().getName(), (FuncType) functionDefinition.getSymbol().getType());
-
+    mCurrentLocalVarMap = new HashMap<>();
 
     var parameters = functionDefinition.getParameters();
 
@@ -275,7 +275,14 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(VarAccess name) {
-    return null;
+    if (mCurrentLocalVarMap.containsKey(name.getSymbol())) {
+      return new InstPair(new NopInst(), new NopInst(), mCurrentLocalVarMap.get(name.getSymbol()));
+    }
+
+    var v = mCurrentFunction.getTempAddressVar(name.getType());
+
+    return new InstPair(new AddressAt(v, name.getSymbol()), new AddressAt(v, name.getSymbol()), v);
+
   }
 
   /**
@@ -284,7 +291,23 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Assignment assignment) {
-    return null;
+    var lhs = assignment.getLocation().accept(this);
+    var rhs = assignment.getValue().accept(this);
+
+
+    Instruction end;
+    if(lhs.getVal().getClass().equals(LocalVar.class)) {
+      end = new CopyInst((LocalVar) lhs.getVal(), rhs.getVal());
+    }
+    else {
+      end = new StoreInst(((CopyInst) rhs.getStart()).getDstVar(), (AddressVar) lhs.getVal());
+    }
+
+    Instruction start = lhs.start;
+    start.setNext(0, rhs.start);
+    start.getNext(0).setNext(0, end);
+
+    return new InstPair(start, end);
   }
 
   /**
@@ -306,6 +329,9 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //      callArgs.add(mCurrentFunction.getTempVar(ret.getVal().getType())); //this is correct use the caller
       if (ret.end.getClass().equals(BinaryOperator.class)) {
         callArgs.add(((BinaryOperator) ret.end).getDst());
+      }
+      else if (ret.end.getClass().equals(AddressAt.class)) {
+        callArgs.add((AddressAt) ret.getVal());
       }
       else {
         callArgs.add(((CopyInst) ret.start).getDstVar());
