@@ -56,6 +56,15 @@ class InstPair {
     this.end.setNext(0, inst);
   }
 
+  public Instruction getStart() {
+    return this.start;
+  }
+
+  public Instruction getEnd() {
+    return this.end;
+  }
+
+
   public void addEdge(InstPair instPair) {
     this.end.setNext(0, instPair.start);
   }
@@ -98,6 +107,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       child.accept(this);
     }
 
+//    return new InstPair(new NopInst());
     return new InstPair(new NopInst());
 
     //return null;
@@ -127,6 +137,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     }
 
     mCurrentFunction.setArguments(listVars);
+    mCurrentProgram.addFunction(mCurrentFunction);
 
 
     //CurrentFunction.setStart(functionDefinition.getStatements());
@@ -137,7 +148,6 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     mCurrentFunction.setStart(v.start);
 
-    mCurrentProgram.addFunction(mCurrentFunction);
 
 
 
@@ -172,21 +182,27 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
       var instP = statement.accept(this);
 
-      if(counter == 0) {
-        startInst.setNext(0, instP.start);
-//          for (int i = 0; i < instP.start.numNext(); i++) {
+      stateIP.add(instP);
+//      if(counter == 0) {
+//        startInst.setNext(0, instP.start);
+////          for (int i = 0; i < instP.start.numNext(); i++) {
+////
+////          }
+////        temp = startInst.getNext(0);
+////        temp.setNext(0, instP.end);
+//        temp = startInst.getNext(0);
+//        temp.setNext(0, instP.end);
 //
-//          }
-        temp = startInst.getNext(0);
-        temp.setNext(0, instP.end);
-      }
-      else {
-        temp = temp.getNext(0);
-        temp.setNext(0, instP.start);
-        temp = temp.getNext(0);
-        temp.setNext(0, instP.end);
-      }
-      counter++;
+//      }
+//      else {
+//        temp = temp.getNext(0);
+//        temp.setNext(0, instP.start);
+//        temp = temp.getNext(0);
+//        temp.setNext(0, instP.end);
+//      }
+//      counter++;
+
+      //func_cfg.addEdge(instP);
 
 
 
@@ -196,8 +212,25 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //      func_cfg = instP;
     }
 
+    Instruction start = null;
+    Instruction end = null;
 
-    return new InstPair(func_cfg.start, new NopInst());
+    for (InstPair pair : stateIP) {
+      if (start == null) {
+        start = pair.getStart();
+        end = pair.getEnd();
+      } else {
+        end.setNext(0, pair.getStart());
+        end = pair.getEnd();
+      }
+    }
+
+//start and end could be null if the list is empty;
+    InstPair result = new InstPair (start, end);
+
+
+
+    return result;
     //return the main_inst_pair
 //    return func_cfg;
 
@@ -276,22 +309,6 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       return new InstPair(callInst, new NopInst());
     }
 
-
-
-
-
-
-
-
-//
-//      InstPair tail = retVal;
-//
-//      for (InstPair temp : genTemps) {
-//        tail = tail.addEdge(temp);
-//      }
-//
-//      tail.addEdge(callInst);
-
     return new InstPair(inst, callInst);
   }
 
@@ -301,7 +318,34 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(OpExpr operation) {
-    return null;
+    var lhs = operation.getLeft().accept(this);
+    var rhs = operation.getRight().accept(this);
+
+    BinaryOperator.Op op;
+
+    switch (operation.getOp().toString()) {
+      case "+":
+        op = BinaryOperator.Op.Add;
+        break;
+      case "-":
+        op = BinaryOperator.Op.Sub;
+        break;
+      case "*":
+        op = BinaryOperator.Op.Mul;
+        break;
+      default:
+        op = BinaryOperator.Op.Div;
+        break;
+    }
+    var binOp = new BinaryOperator( op, mCurrentFunction.getTempVar(operation.getType()),
+            ((CopyInst)lhs.start).getDstVar(), ((CopyInst)rhs.start).getDstVar());
+
+    rhs.addEdge(binOp);
+    lhs.addEdge(rhs.end);
+
+
+    return new InstPair(lhs.end, binOp);
+
   }
 
   private InstPair visit(Expression expression) {
