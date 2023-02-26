@@ -314,12 +314,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       end = new StoreInst(((CopyInst) rhs.getStart()).getDstVar(), (AddressVar) lhs.getVal());
     }
 
-
-    Instruction start = lhs.end;
+    Instruction start = lhs.start;
     start.setNext(0, rhs.start);
     start.getNext(0).setNext(0, end);
 
-    return new InstPair(lhs.start, end);
+    return new InstPair(start, end);
   }
 
   /**
@@ -375,7 +374,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     //works for test 2-3
     //inst.setNext(0, callInst);
 
-    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class) || genTemps.get(0).getEnd().getClass().equals(LoadInst.class)) {
+    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class) ||
+            genTemps.get(0).getEnd().getClass().equals(LoadInst.class)) {
       genTemps.get(0).getEnd().setNext(0, callInst);
     }
     else {
