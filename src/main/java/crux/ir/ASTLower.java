@@ -281,7 +281,16 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var v = mCurrentFunction.getTempAddressVar(name.getType());
 
-    return new InstPair(new AddressAt(v, name.getSymbol()), new AddressAt(v, name.getSymbol()), v);
+    var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
+
+    //var store = new StoreInst(mCurrentFunction.getTempVar(name.getType()), v);
+
+    //mCurrentLocalVarMap.put(name.getSymbol(), load.getDst());
+
+    return new InstPair(new AddressAt(load.getSrcAddress(), name.getSymbol()),
+            new AddressAt(load.getSrcAddress(), name.getSymbol()),
+            load.getSrcAddress());
+    //return new InstPair(new AddressAt(v, name.getSymbol()), new AddressAt(v, name.getSymbol()), v);
 
   }
 
@@ -331,7 +340,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
         callArgs.add(((BinaryOperator) ret.end).getDst());
       }
       else if (ret.end.getClass().equals(AddressAt.class)) {
-        callArgs.add((AddressAt) ret.getVal());
+        callArgs.add(((AddressAt)ret.end).getOffset());
       }
       else {
         callArgs.add(((CopyInst) ret.start).getDstVar());
