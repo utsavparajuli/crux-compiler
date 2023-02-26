@@ -340,10 +340,13 @@ public final class ASTLower implements NodeVisitor<InstPair> {
         callArgs.add(((BinaryOperator) ret.end).getDst());
       }
       else if (ret.end.getClass().equals(AddressAt.class)) {
-        callArgs.add(((AddressAt)ret.end).getOffset());
+        //callArgs.add(((AddressAt)ret.end).getOffset());
+      }
+      else if (ret.end.getClass().equals(CopyInst.class)){
+        callArgs.add(((CopyInst) ret.start).getDstVar());
       }
       else {
-        callArgs.add(((CopyInst) ret.start).getDstVar());
+        callArgs.add((LocalVar) ret.getVal());
       }
 
       genTemps.add(ret);
@@ -351,7 +354,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       //add the arg to  args but  as a LocalVar.
     }
       //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
-    CallInst callInst = new CallInst(call.getCallee(), callArgs);
+    CallInst callInst = new CallInst(mCurrentFunction.getTempVar(call.getType()), call.getCallee(), callArgs);
 
 
 
@@ -362,7 +365,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       inst = genTemps.get(0).start;
     }
     else {
-      return new InstPair(callInst, new NopInst());
+      return new InstPair(callInst, callInst, callInst.getDst());
     }
 
 
@@ -456,7 +459,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Return ret) {
-    return null;
+    var v = ret.getValue().accept(this);
+
+    ReturnInst ri = new ReturnInst((LocalVar) v.val);
+    v.getEnd().setNext(0, ri);
+    return new InstPair(v.getStart(), ri);
   }
 
   /**
@@ -472,7 +479,35 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(IfElseBranch ifElseBranch) {
-    return null;
+    var cond = ifElseBranch.getCondition().accept(this);
+
+    JumpInst j = new JumpInst(((CopyInst) cond.getStart()).getDstVar());
+
+
+    cond.addEdge(j);
+
+
+    var elseBlock = ifElseBranch.getElseBlock().accept(this);
+    var thenBlock = ifElseBranch.getThenBlock().accept(this);
+
+    NopInst n = new NopInst();
+
+    if (elseBlock.getEnd() != null) {
+      elseBlock.getEnd().setNext(0, n);
+    }
+    else {
+      elseBlock.getStart().setNext(0, n);
+    }
+
+    thenBlock.getEnd().setNext(0, n);
+
+    j.setNext(0, elseBlock.getStart());
+    j.setNext(1, thenBlock.getStart());
+
+
+
+
+    return new InstPair(cond.getEnd(), n);
   }
 
   /**
