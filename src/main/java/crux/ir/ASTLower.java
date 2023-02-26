@@ -287,8 +287,10 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     //mCurrentLocalVarMap.put(name.getSymbol(), load.getDst());
 
-    return new InstPair(new AddressAt(load.getSrcAddress(), name.getSymbol()),
-            new AddressAt(load.getSrcAddress(), name.getSymbol()),
+    var adAt = new AddressAt(load.getSrcAddress(), name.getSymbol());
+    adAt.setNext(0, load);
+    return new InstPair(adAt,
+            load,
             load.getSrcAddress());
     //return new InstPair(new AddressAt(v, name.getSymbol()), new AddressAt(v, name.getSymbol()), v);
 
@@ -312,11 +314,12 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       end = new StoreInst(((CopyInst) rhs.getStart()).getDstVar(), (AddressVar) lhs.getVal());
     }
 
-    Instruction start = lhs.start;
+
+    Instruction start = lhs.end;
     start.setNext(0, rhs.start);
     start.getNext(0).setNext(0, end);
 
-    return new InstPair(start, end);
+    return new InstPair(lhs.start, end);
   }
 
   /**
@@ -339,8 +342,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       if (ret.end.getClass().equals(BinaryOperator.class)) {
         callArgs.add(((BinaryOperator) ret.end).getDst());
       }
-      else if (ret.end.getClass().equals(AddressAt.class)) {
-        //callArgs.add(((AddressAt)ret.end).getOffset());
+      else if (ret.end.getClass().equals(LoadInst.class)) {
+        callArgs.add(((LoadInst)ret.end).getDst());
       }
       else if (ret.end.getClass().equals(CopyInst.class)){
         callArgs.add(((CopyInst) ret.start).getDstVar());
@@ -372,7 +375,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     //works for test 2-3
     //inst.setNext(0, callInst);
 
-    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class)) {
+    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class) || genTemps.get(0).getEnd().getClass().equals(LoadInst.class)) {
       genTemps.get(0).getEnd().setNext(0, callInst);
     }
     else {
