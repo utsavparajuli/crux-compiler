@@ -23,21 +23,16 @@ class InstPair {
 
 
   //write get and set
-  public Instruction getStart() {
-    return this.start;
-  }
-  public Instruction getEnd() {
-    return this.end;
-  }
   public Value getVal() {
-    return this.val;
+    return val;
   }
+
   public void setVal(Value val) {
     this.val = val;
   }
+
   public InstPair(Instruction start, Instruction end) {
     this.start = start;
-    //start.setNext(0,this.end);
     this.end = end;
     val = null;
   }
@@ -45,7 +40,6 @@ class InstPair {
 
   public InstPair(Instruction start, Instruction end, Value val) {
     this.start = start;
-    //start.setNext(0,this.end);
     this.end = end;
     this.val = val;
   }
@@ -53,26 +47,29 @@ class InstPair {
   public InstPair(Instruction inst) {
     this.start = inst;
     this.end = inst;
-    //start.setNext(0, this.end);
     val = null;
-  }
-    public InstPair(Instruction inst, Value val) {
-        this.start = inst;
-        this.end = inst;
-        //start.setNext(0, this.end);
-        this.val = val;
-    }
-  public void addEdge(Instruction inst)
-  {
-    this.getEnd().setNext(0, inst);
-    this.end = inst;
+
   }
 
-  public void addEdge(InstPair instPair)
-  {
-    this.getEnd().setNext(0, instPair.getStart());
-    this.end = instPair.getEnd();
+
+  public void addEdge(Instruction inst) {
+    this.end.setNext(0, inst);
   }
+
+  public Instruction getStart() {
+    return this.start;
+  }
+
+  public Instruction getEnd() {
+    return this.end;
+  }
+
+
+  public void addEdge(InstPair instPair) {
+    this.end.setNext(0, instPair.start);
+  }
+
+
 
 }
 
@@ -86,6 +83,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
   private Map<Symbol, LocalVar> mCurrentLocalVarMap = null;
 
+  private NopInst exitLoop = null;
   /**
    * A constructor to initialize member variables
    */
@@ -110,7 +108,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       child.accept(this);
     }
 
-    return new InstPair(new NopInst(), new NopInst());
+//    return new InstPair(new NopInst());
+    return new InstPair(new NopInst());
 
     //return null;
   }
@@ -123,9 +122,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   public InstPair visit(FunctionDefinition functionDefinition) {
 
 
-    mCurrentFunction = new Function(functionDefinition.getSymbol().getName(),
-                            (FuncType) functionDefinition.getSymbol().getType());
-
+    mCurrentFunction = new Function(functionDefinition.getSymbol().getName(), (FuncType) functionDefinition.getSymbol().getType());
+    mCurrentLocalVarMap = new HashMap<>();
 
     var parameters = functionDefinition.getParameters();
 
@@ -168,18 +166,82 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   public InstPair visit(StatementList statementList) {
     var statements = statementList.getChildren();
 
-    InstPair func_cfg = new InstPair(new NopInst());
+    NopInst startInst = new NopInst();
+    NopInst endInst = new NopInst();
+
+    InstPair func_cfg = new InstPair(startInst, endInst);
 
 
+
+
+    var stateIP = new ArrayList<InstPair>();
+    int counter = 0;
+    Instruction temp = null;
     //Init main_inst_pair
     for(var statement : statements) {
       //main_inst_pair.addEdge( what ever the accept returrns )
+
       var instP = statement.accept(this);
-      func_cfg.addEdge(instP);
+
+      stateIP.add(instP);
+//      if(counter == 0) {
+//        startInst.setNext(0, instP.start);
+////          for (int i = 0; i < instP.start.numNext(); i++) {
+////
+////          }
+////        temp = startInst.getNext(0);
+////        temp.setNext(0, instP.end);
+//        temp = startInst.getNext(0);
+//        temp.setNext(0, instP.end);
+//
+//      }
+//      else {
+//        temp = temp.getNext(0);
+//        temp.setNext(0, instP.start);
+//        temp = temp.getNext(0);
+//        temp.setNext(0, instP.end);
+//      }
+//      counter++;
+
+      //func_cfg.addEdge(instP);
+
+
+
+//      func_cfg.addEdge(instP);
+//
+//
+//      func_cfg = instP;
     }
+
+    Instruction start = null;
+    Instruction end = null;
+
+    for (InstPair pair : stateIP) {
+      if (start == null) {
+        start = pair.getStart();
+        end = pair.getEnd();
+      } else {
+        end.setNext(0, pair.getStart());
+        end = pair.getEnd();
+      }
+    }
+
+//start and end could be null if the list is empty;
+
+    if(start == null) {
+      start = new NopInst();
+    }
+
+    InstPair result = new InstPair (start, end);
+
+
+
+    return result;
     //return the main_inst_pair
-    return func_cfg;
+//    return func_cfg;
+
     //return null;
+
   }
 
   /**
@@ -187,7 +249,14 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(VariableDeclaration variableDeclaration) {
-    return null;
+
+    if (mCurrentFunction == null) {
+      mCurrentProgram.addGlobalVar(new GlobalDecl(variableDeclaration.getSymbol(), IntegerConstant.get(mCurrentProgram, 1)));
+    }
+    else {
+      mCurrentLocalVarMap.put(variableDeclaration.getSymbol(), mCurrentFunction.getTempVar(variableDeclaration.getType()));
+    }
+    return new InstPair(new NopInst());
   }
 
   /**
@@ -195,17 +264,13 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(ArrayDeclaration arrayDeclaration) {
-    return null;
+    mCurrentProgram.addGlobalVar(new GlobalDecl(arrayDeclaration.getSymbol(),
+            IntegerConstant.get(mCurrentProgram, ((ArrayType)arrayDeclaration.getSymbol().getType()).getExtent())));
+
+    return new InstPair(new NopInst());
   }
 
-  /**
-   * LookUp the name in the map(s). For globals, we should do a load to get the value to load into a
-   * LocalVar.
-   */
-  @Override
-  public InstPair visit(VarAccess name) {
-    return null;
-  }
+
 
   /**
    * If the location is a VarAccess to a LocalVar, copy the value to it. If the location is a
@@ -213,7 +278,28 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Assignment assignment) {
-    return null;
+    var lhs = assignment.getLocation().accept(this);
+    var rhs = assignment.getValue().accept(this);
+
+
+    Instruction end;
+    if(lhs.getVal().getClass().equals(LocalVar.class)) {
+      end = new CopyInst((LocalVar) lhs.getVal(), rhs.getVal());
+    }
+    else {
+      if(rhs.getStart().getClass().equals(CopyInst.class))
+        end = new StoreInst(((CopyInst) rhs.getStart()).getDstVar(), (AddressVar) lhs.getVal());
+      else if (rhs.getStart().getClass().equals(CallInst.class))
+        end = new StoreInst(((CallInst) rhs.getStart()).getDst(), (AddressVar) lhs.getVal());
+      else
+        end = new StoreInst(((LoadInst) rhs.getStart()).getDst(), (AddressVar) lhs.getVal());
+    }
+
+    Instruction start = lhs.start;
+    start.setNext(0, rhs.start);
+    start.getNext(0).setNext(0, end);
+
+    return new InstPair(start, end);
   }
 
   /**
@@ -232,62 +318,55 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       var ret = arg.accept(this);
 
 
-      //callArgs.add(mCurrentFunction.getTempVar(ret.getVal().getType())); //this is correct use the caller
-      callArgs.add(((CopyInst) ret.end).getDstVar());
+//      callArgs.add(mCurrentFunction.getTempVar(ret.getVal().getType())); //this is correct use the caller
+      if (ret.end.getClass().equals(BinaryOperator.class)) {
+        callArgs.add(((BinaryOperator) ret.end).getDst());
+      }
+      else if (ret.end.getClass().equals(LoadInst.class)) {
+        callArgs.add(((LoadInst)ret.end).getDst());
+      }
+      else if (ret.end.getClass().equals(CopyInst.class)){
+        callArgs.add(((CopyInst) ret.start).getDstVar());
+      }
+      else if (ret.end.getClass().equals(AddressAt.class)){
+        callArgs.add(((AddressAt) ret.end).getOffset());
+      }
+      else {
+        callArgs.add((LocalVar) ret.getVal());
+      }
+
+
       genTemps.add(ret);
 
       //add the arg to  args but  as a LocalVar.
     }
-      //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
-    CallInst callInst = new CallInst(call.getCallee(), callArgs);
+    //  public CallInst(LocalVar destVar, Symbol callee, List<LocalVar> params) {
+    CallInst callInst = new CallInst(mCurrentFunction.getTempVar(call.getType()), call.getCallee(), callArgs);
 
-    //InstPair start = new InstPair(new NopInst());
-    //InstPair justAdded = start;
 
-    //Instruction start = null;
-    //Instruction end = null;
-    InstPair test = new InstPair(new NopInst());
 
-    InstPair ip = new InstPair(new NopInst());
 
-    for(InstPair pair : genTemps)
-    {
-      //if(start == null)
-      //{
-      //  start = pair.getStart();
-      //  end = pair.getEnd();
-      //}
-      //else
-      //{
-      //  end.setNext(0, pair.getStart());
-      //  end = pair.getEnd();
-      //}
-      //start.addEdge(temp);
-      //  justAdded = temp; //need to get the just added edge
-      ip.addEdge(pair);
+    InstPair retVal;
+    Instruction inst;
+    if(!genTemps.isEmpty()) {
+      inst = genTemps.get(0).start;
     }
-    //end.setNext(0, callInst);
-    //InstPair retVal;
-    //if(!genTemps.isEmpty()) {
-    //  retVal = new InstPair(genTemps.get(0).start);
-    //}
-    //else {
-    //  return new InstPair(callInst);
-    //}
-
-    //justAdded.addEdge(new InstPair(callInst, new NopInst()));
+    else {
+      return new InstPair(callInst, callInst, callInst.getDst());
+    }
 
 
-//
-//      InstPair tail = retVal;
-//
-//      for (InstPair temp : genTemps) {
-//        tail = tail.addEdge(temp);
-//      }
-//
-//      tail.addEdge(callInst);
-    ip.addEdge(callInst);
-    return ip;
+    //works for test 2-3
+    //inst.setNext(0, callInst);
+
+    if (genTemps.get(0).getEnd().getClass().equals(BinaryOperator.class) ||
+            genTemps.get(0).getEnd().getClass().equals(LoadInst.class)) {
+      genTemps.get(0).getEnd().setNext(0, callInst);
+    }
+    else {
+      inst.setNext(0, callInst);
+    }
+    return new InstPair(inst, callInst);
   }
 
   /**
@@ -296,19 +375,130 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(OpExpr operation) {
-    return null;
+    var lhs = operation.getLeft().accept(this);
+    var rhs = operation.getRight().accept(this);
+
+    BinaryOperator.Op op = null;
+    CompareInst.Predicate pred = null;
+
+    BinaryOperator binOp = null;
+    CompareInst compareInst;
+
+    switch (operation.getOp().toString()) {
+      case "+":
+        op = BinaryOperator.Op.Add;
+        break;
+      case "-":
+        op = BinaryOperator.Op.Sub;
+        break;
+      case "*":
+        op = BinaryOperator.Op.Mul;
+        break;
+      case "/":
+        op = BinaryOperator.Op.Div;
+        break;
+      case ">":
+        pred = CompareInst.Predicate.GT;
+        break;
+      case ">=":
+        pred = CompareInst.Predicate.GE;
+        break;
+      case "<":
+        pred = CompareInst.Predicate.LT;
+        break;
+      case "<=":
+        pred = CompareInst.Predicate.LE;
+        break;
+      case "==":
+        pred = CompareInst.Predicate.EQ;
+        break;
+      default:
+        pred = CompareInst.Predicate.NE;
+        break;
+    }
+
+    if(op != null) {
+
+      if (lhs.getStart().getClass().equals(CopyInst.class)) {
+        binOp = new BinaryOperator( op, mCurrentFunction.getTempVar(operation.getType()),
+                ((CopyInst)lhs.start).getDstVar(), ((CopyInst)rhs.start).getDstVar());
+      }
+      else {
+        binOp = new BinaryOperator( op, mCurrentFunction.getTempVar(operation.getType()),
+                ((LoadInst)lhs.end).getDst(), ((CopyInst)rhs.start).getDstVar());
+      }
+
+      rhs.addEdge(binOp);
+      lhs.addEdge(rhs.end);
+
+
+      return new InstPair(lhs.end, binOp);
+    }
+    else {
+      compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
+              ((LoadInst)lhs.end).getDst(), ((CopyInst)rhs.start).getDstVar());
+      rhs.addEdge(compareInst);
+      lhs.addEdge(rhs.end);
+
+
+      return new InstPair(lhs.end, compareInst);
+    }
+
+
+
+
+
   }
 
   private InstPair visit(Expression expression) {
     return null;
   }
 
+
+  /**
+   * LookUp the name in the map(s). For globals, we should do a load to get the value to load into a
+   * LocalVar.
+   */
+  @Override
+  public InstPair visit(VarAccess name) {
+    if (mCurrentLocalVarMap.containsKey(name.getSymbol())) {
+      return new InstPair(new NopInst(), new NopInst(), mCurrentLocalVarMap.get(name.getSymbol()));
+    }
+
+    var v = mCurrentFunction.getTempAddressVar(name.getType());
+
+    var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
+
+    //var store = new StoreInst(mCurrentFunction.getTempVar(name.getType()), v);
+
+    //mCurrentLocalVarMap.put(name.getSymbol(), load.getDst());
+
+    var adAt = new AddressAt(load.getSrcAddress(), name.getSymbol());
+    adAt.setNext(0, load);
+    return new InstPair(adAt,
+            load,
+            load.getSrcAddress());
+    //return new InstPair(new AddressAt(v, name.getSymbol()), new AddressAt(v, name.getSymbol()), v);
+
+  }
   /**
    * It should compute the address into the array, do the load, and return the value in a LocalVar.
    */
   @Override
   public InstPair visit(ArrayAccess access) {
-    return null;
+    var index = access.getIndex().accept(this);
+
+    var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
+
+    var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
+
+    var adAt = new AddressAt(loadInst.getSrcAddress(), access.getBase(), ((CopyInst) index.start).getDstVar());
+
+    adAt.setNext(0, loadInst);
+
+    index.addEdge(adAt);
+
+    return new InstPair(index.getEnd(), loadInst, tempArr);
   }
 
   /**
@@ -316,7 +506,12 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(LiteralBool literalBool) {
-    return null;
+
+    var v = mCurrentFunction.getTempVar(new BoolType());
+
+    var constRet = BooleanConstant.get(mCurrentProgram, literalBool.getValue());
+
+    return new InstPair(new CopyInst(v,constRet), new CopyInst(v,constRet), constRet);
   }
 
   /**
@@ -328,7 +523,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var constRet = IntegerConstant.get(mCurrentProgram, literalInt.getValue());
 
-    return new InstPair(new CopyInst(v,constRet), constRet);
+    return new InstPair(new CopyInst(v,constRet), new CopyInst(v,constRet), constRet);
   }
 
   /**
@@ -336,7 +531,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Return ret) {
-    return null;
+    var v = ret.getValue().accept(this);
+
+    ReturnInst ri = new ReturnInst((LocalVar) v.val);
+    v.getEnd().setNext(0, ri);
+    return new InstPair(v.getStart(), ri);
   }
 
   /**
@@ -344,7 +543,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Break brk) {
-    return null;
+
+    return new InstPair(exitLoop, new NopInst());
   }
 
   /**
@@ -352,7 +552,40 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(IfElseBranch ifElseBranch) {
-    return null;
+    var cond = ifElseBranch.getCondition().accept(this);
+    JumpInst j;
+    if(cond.getStart().getClass().equals(CopyInst.class)) {
+      j = new JumpInst(((CopyInst) cond.getStart()).getDstVar());
+    }
+    else {
+      j = new JumpInst(((LoadInst) cond.getStart()).getDst());
+    }
+
+
+    cond.addEdge(j);
+
+
+    var elseBlock = ifElseBranch.getElseBlock().accept(this);
+    var thenBlock = ifElseBranch.getThenBlock().accept(this);
+
+    NopInst n = new NopInst();
+
+    if (elseBlock.getEnd() != null) {
+      elseBlock.getEnd().setNext(0, n);
+    }
+    else {
+      elseBlock.getStart().setNext(0, n);
+    }
+
+    thenBlock.getEnd().setNext(0, n);
+
+    j.setNext(0, elseBlock.getStart());
+    j.setNext(1, thenBlock.getStart());
+
+
+
+
+    return new InstPair(cond.getEnd(), n);
   }
 
   /**
@@ -360,6 +593,16 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(For loop) {
-    return null;
+    var header = loop.getCond().accept(this);
+
+    exitLoop = new NopInst();
+
+    var body = loop.getBody().accept(this);
+
+    header.addEdge(body);
+
+    body.addEdge(new InstPair(exitLoop, header.getEnd()));
+
+    return new InstPair(header.getEnd(), exitLoop);
   }
 }
