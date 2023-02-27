@@ -51,6 +51,14 @@ class InstPair {
 
   }
 
+  public InstPair(Instruction inst, Value val) {
+    this.start = inst;
+    this.end = inst;
+    this.val = val;
+
+  }
+
+
 
   public void addEdge(Instruction inst) {
     this.end.setNext(0, inst);
@@ -523,7 +531,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var constRet = IntegerConstant.get(mCurrentProgram, literalInt.getValue());
 
-    return new InstPair(new CopyInst(v,constRet), new CopyInst(v,constRet), constRet);
+    return new InstPair(new CopyInst(v,constRet), constRet);
   }
 
   /**
