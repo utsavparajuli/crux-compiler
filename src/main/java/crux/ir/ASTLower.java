@@ -459,8 +459,17 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //      }
 
       LocalVar retVar = mCurrentFunction.getTempVar(operation.getType());
-      binOp = new BinaryOperator( op, retVar,
-              (LocalVar) lhs.getVal(), (LocalVar) rhs.getVal());
+
+      if (!lhs.end.getClass().equals(LoadInst.class)) {
+        binOp = new BinaryOperator( op, retVar,
+                (LocalVar) lhs.getVal(), (LocalVar) rhs.getVal());
+      }
+      else {
+        binOp = new BinaryOperator( op, retVar,
+                ((LoadInst) lhs.end).getDst(), (LocalVar) rhs.getVal());
+      }
+
+
 
 
       //lhs -> rhs -> binOP
@@ -479,8 +488,16 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     else {
 //      compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
 //              (LocalVar) lhs.getVal(), ((CopyInst)rhs.start).getDstVar());
-      compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
-              (LocalVar) lhs.getVal(), (LocalVar) rhs.getVal());
+
+      if (lhs.end.getClass().equals(LoadInst.class)) {
+        compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
+                ((LoadInst) lhs.end).getDst(), (LocalVar) rhs.getVal());
+      }
+      else {
+        compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
+                (LocalVar) lhs.getVal(), (LocalVar) rhs.getVal());
+      }
+
       lhs.addEdge(rhs);
       lhs.addEdge(compareInst);
       lhs.setVal(compareInst.getDst());
@@ -537,15 +554,21 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
 
-    var adAt = new AddressAt(tempArr, access.getBase(),
-            (LocalVar) index.getVal());
+    AddressAt adAt;
+
+    if (index.end.getClass().equals(LoadInst.class)) {
+      adAt = new AddressAt(tempArr, access.getBase(),
+              ((LoadInst) index.end).getDst());
+    }
+    else {
+      adAt = new AddressAt(tempArr, access.getBase(),
+              (LocalVar) index.getVal());
+    }
 
     index.addEdge(adAt);
 
     if (addressStored.contains(access.getBase())) {
       var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
-
-
 
 //      adAt.setNext(0, loadInst);
       index.addEdge(loadInst);
@@ -601,7 +624,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   @Override
   public InstPair visit(Break brk) {
 
-    return new InstPair(exitLoop);
+    //exitLoop = null;
+    return new InstPair(new NopInst());
   }
 
   /**
@@ -682,6 +706,9 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     jumpInst.setNext(0, exitLoop);
     jumpInst.setNext(1, body.getStart());
 
+//    if (body.end.getClass().equals(Break.class)) {
+//
+//    }
     body.addEdge(increment);
 
 
