@@ -116,7 +116,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   private NopInst exitLoop = null;
 
 
-  private ArrayList<Symbol>  addressStored = new ArrayList<>();
+  private ArrayList<AddressAt>  addressStored = new ArrayList<>();
   /**
    * A constructor to initialize member variables
    */
@@ -296,7 +296,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //        addressStored.add(((AddressAt) temp).getBase());
 //      }
 
-      Symbol symbol = null;
+      AddressAt addressAt = null;
 
       if(assignment.getLocation().getClass().equals(VarAccess.class)) {
         symbol = ((VarAccess) assignment.getLocation()).getSymbol();
@@ -319,8 +319,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     //start.setNext(0, rhs.start);
     //start.getNext(0).setNext(0, end);
 //    rhs.addEdge(end);
-    rhs.addEdge(end);
     lhs.addEdge(rhs);
+    lhs.addEdge(end);
 
     return lhs;
     //return  lhs;
@@ -573,11 +573,12 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //      adAt.setNext(0, loadInst);
       index.addEdge(loadInst);
 
-      return new InstPair(index.getEnd(), loadInst, tempArr);
+      return new InstPair(adAt, loadInst, tempArr);
     }
 
+    ///index->adAt
 
-    return new InstPair(index.getStart(), tempArr);
+    return new InstPair(adAt, tempArr);
 
   }
 
