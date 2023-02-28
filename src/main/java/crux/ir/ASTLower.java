@@ -103,6 +103,9 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   private Map<Symbol, LocalVar> mCurrentLocalVarMap = null;
 
   private NopInst exitLoop = null;
+
+
+  private ArrayList<Symbol>  addressStored = new ArrayList<>();
   /**
    * A constructor to initialize member variables
    */
@@ -232,6 +235,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     if (mCurrentFunction == null) {
       mCurrentProgram.addGlobalVar(new GlobalDecl(variableDeclaration.getSymbol(),
               IntegerConstant.get(mCurrentProgram, 1)));
+
+
     }
     else {
       mCurrentLocalVarMap.put(variableDeclaration.getSymbol(),
@@ -260,6 +265,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Assignment assignment) {
+
     var lhs = assignment.getLocation().accept(this);
     var rhs = assignment.getValue().accept(this);
 
@@ -277,6 +283,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //      else
 //        end = new StoreInst(((LoadInst) rhs.getStart()).getDst(), (AddressVar) lhs.getVal());
 
+      addressStored.add(((AddressAt) lhs.getStart()).getBase());
       end = new StoreInst((LocalVar) rhs.getVal(), (AddressVar) lhs.getVal());
     }
 
@@ -478,15 +485,22 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var v = mCurrentFunction.getTempAddressVar(name.getType());
 
-    var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
 
-    var adAt = new AddressAt(load.getSrcAddress(), name.getSymbol());
+    if (addressStored.contains(name.getSymbol())) {
+      var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
 
-    adAt.setNext(0, load);
+      var adAt = new AddressAt(v, name.getSymbol());
 
-    return new InstPair(adAt,
-            load,
-            v);
+      adAt.setNext(0, load);
+
+      return new InstPair(adAt,
+              load,
+              v);
+
+    }
+
+    return new InstPair(new AddressAt(v, name.getSymbol()), v);
+
   }
   /**
    * It should compute the address into the array, do the load, and return the value in a LocalVar.
@@ -497,16 +511,24 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
     var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
 
-    var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
+    var adAt = new AddressAt(tempArr, access.getBase(),
+            (LocalVar) index.getVal());
 
-    var adAt = new AddressAt(loadInst.getSrcAddress(), access.getBase(),
-            ((CopyInst) index.start).getDstVar());
+    index.getEnd().setNext(0, adAt);
 
-    adAt.setNext(0, loadInst);
+    if (addressStored.contains(access.getBase())) {
+      var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
 
-    index.addEdge(adAt);
 
-    return new InstPair(index.getEnd(), loadInst, tempArr);
+
+      adAt.setNext(0, loadInst);
+
+      return new InstPair(index.getEnd(), loadInst, tempArr);
+    }
+
+
+    return new InstPair(index.getEnd(), tempArr);
+
   }
 
   /**
