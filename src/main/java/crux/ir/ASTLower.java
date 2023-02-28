@@ -465,14 +465,15 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
       //lhs -> rhs -> binOP
       //1 + 2 + 3
-      rhs.addEdge(binOp);
       lhs.addEdge(rhs);
+      lhs.addEdge(binOp);
+      lhs.setVal(retVar);
 
 //      rhs.addEdge(binOp);
 //      lhs.addEdge(rhs.end);
 
 
-      return new InstPair(lhs.start, binOp, retVar);
+      return lhs;
 
     }
     else {
@@ -480,11 +481,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //              (LocalVar) lhs.getVal(), ((CopyInst)rhs.start).getDstVar());
       compareInst = new CompareInst(mCurrentFunction.getTempVar(operation.getType()), pred,
               (LocalVar) lhs.getVal(), (LocalVar) rhs.getVal());
-      rhs.addEdge(compareInst);
-      lhs.addEdge(rhs.end);
+      lhs.addEdge(rhs);
+      lhs.addEdge(compareInst);
+      lhs.setVal(compareInst.getDst());
 
-
-      return new InstPair(lhs.end, compareInst, compareInst.getDst());
+      return lhs;
     }
 
 
@@ -600,7 +601,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   @Override
   public InstPair visit(Break brk) {
 
-    return new InstPair(exitLoop, new NopInst());
+    return new InstPair(exitLoop);
   }
 
   /**
@@ -658,16 +659,43 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(For loop) {
-    var header = loop.getCond().accept(this);
+
+    var init = loop.getInit().accept(this);
+    var cond = loop.getCond().accept(this);
+    var increment = loop.getIncrement().accept(this);
+
+
+    InstPair retVal = new InstPair(new NopInst());
+    retVal.addEdge(init);
+
+    retVal.addEdge(cond);
+
+    JumpInst jumpInst = new JumpInst((LocalVar) cond.getVal());
+
+    retVal.addEdge(jumpInst);
 
     exitLoop = new NopInst();
 
     var body = loop.getBody().accept(this);
 
-    header.addEdge(body);
 
-    body.addEdge(new InstPair(exitLoop, header.getEnd()));
+    jumpInst.setNext(0, exitLoop);
+    jumpInst.setNext(1, body.getStart());
 
-    return new InstPair(header.getEnd(), exitLoop);
+    body.addEdge(increment);
+
+
+
+    body.addEdge(cond);
+
+
+
+//    body.(exitLoop);
+
+//    header.addEdge(body);
+
+//    body.addEdge(new InstPair(exitLoop, header.getEnd()));
+
+    return retVal;
   }
 }
