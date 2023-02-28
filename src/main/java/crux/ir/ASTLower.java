@@ -6,6 +6,7 @@ import crux.ast.OpExpr.Operation;
 import crux.ast.traversal.NodeVisitor;
 import crux.ast.types.*;
 import crux.ir.insts.*;
+import org.antlr.v4.runtime.misc.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -115,8 +116,9 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
   private NopInst exitLoop = null;
 
+  private int mCurrentlyAssigning = 0;
 
-  private ArrayList<AddressAt>  addressStored = new ArrayList<>();
+  private ArrayList<Pair<Symbol, Integer>>  addressStored = new ArrayList<>();
   /**
    * A constructor to initialize member variables
    */
@@ -276,8 +278,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(Assignment assignment) {
-
+    //global assigningCurrently = TRUE
+    //mCurrentlyAssigning += 1;
     var lhs = assignment.getLocation().accept(this);
+    mCurrentlyAssigning = 0;
+    //global assigningCurrebntly = FALSE
     var rhs = assignment.getValue().accept(this);
 
 
@@ -296,18 +301,21 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 //        addressStored.add(((AddressAt) temp).getBase());
 //      }
 
-      AddressAt addressAt = null;
-
-      if(assignment.getLocation().getClass().equals(VarAccess.class)) {
-        symbol = ((VarAccess) assignment.getLocation()).getSymbol();
-      }
-      else {
-        symbol = ((ArrayAccess) assignment.getLocation()).getBase();
-      }
-
-      if (!addressStored.contains(symbol) && symbol != null) {
-        addressStored.add(symbol);
-      }
+      Symbol symbol = null;
+      Integer base = null;
+//      if(assignment.getLocation().getClass().equals(VarAccess.class)) {
+//        symbol = ((VarAccess) assignment.getLocation()).getSymbol();
+//      }
+//      else {
+//        symbol = ((ArrayAccess) assignment.getLocation()).getBase();
+//      }
+//
+//      if (!addressStored.contains() && symbol != null) {
+//        addressStored.add(symbol);
+//      }
+//
+//      if !mCurrentlyAssigning:
+//
 
 //      addressStored.add(((AddressAt) lhs.getStart()).getBase());
       end = new StoreInst((LocalVar) rhs.getVal(), (AddressVar) lhs.getVal());
@@ -522,6 +530,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(VarAccess name) {
+    mCurrentlyAssigning += 1;
     if (mCurrentLocalVarMap.containsKey(name.getSymbol())) {
       return new InstPair(new NopInst(), mCurrentLocalVarMap.get(name.getSymbol()));
     }
@@ -529,20 +538,22 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     var v = mCurrentFunction.getTempAddressVar(name.getType());
 
 
-    if (addressStored.contains(name.getSymbol())) {
-      var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
+//    if (addressStored.contains(name.getSymbol())) {
+      if (mCurrentlyAssigning >= 2 || mCurrentlyAssigning == 0)
+      {
+        var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
 
-      var adAt = new AddressAt(v, name.getSymbol());
+        var adAt = new AddressAt(v, name.getSymbol());
 
-      adAt.setNext(0, load);
+        adAt.setNext(0, load);
 
-      return new InstPair(adAt,
-              load,
-              v);
-
+        return new InstPair(adAt,
+                load,
+                v);
     }
 
-    return new InstPair(new AddressAt(v, name.getSymbol()), v);
+//      mCurrentlyAssigning -= 1;
+      return new InstPair(new AddressAt(v, name.getSymbol()), v);
 
   }
   /**
@@ -550,7 +561,10 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(ArrayAccess access) {
+    mCurrentlyAssigning += 1;
+
     var index = access.getIndex().accept(this);
+
 
     var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
 
@@ -564,23 +578,39 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       adAt = new AddressAt(tempArr, access.getBase(),
               (LocalVar) index.getVal());
     }
-
     index.addEdge(adAt);
-
-    if (addressStored.contains(access.getBase())) {
+    // if NOT currentlyAssigning:
+    if (mCurrentlyAssigning >= 2 || mCurrentlyAssigning == 0) {
       var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
-
-//      adAt.setNext(0, loadInst);
       index.addEdge(loadInst);
-
-      return new InstPair(adAt, loadInst, tempArr);
     }
-
-    ///index->adAt
-
-    return new InstPair(adAt, tempArr);
+    //else we are currentlyAssigning
+    index.setVal(tempArr);
+//    mCurrentlyAssigning -= 1;
+    return index;
 
   }
+//  public InstPair visit(ArrayAccess access) {
+//    var index = access.getIndex().accept(this);
+//    var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
+//    AddressAt adAt;
+//    if (index.end.getClass().equals(LoadInst.class)) {
+//      adAt = new AddressAt(tempArr, access.getBase(),
+//              ((LoadInst) index.end).getDst());
+//    }
+//    else {
+//      adAt = new AddressAt(tempArr, access.getBase(),
+//              (LocalVar) index.getVal());
+//    }
+//    index.addEdge(adAt);
+//    if (addressStored.contains(access.getBase())) {
+//      var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
+////      adAt.setNext(0, loadInst);
+//      index.addEdge(loadInst);
+//      return new InstPair(index.getEnd(), loadInst, tempArr);
+//    }
+//    return new InstPair(adAt, tempArr);
+//  }
 
   /**
    * Copy the literal into a tempVar
