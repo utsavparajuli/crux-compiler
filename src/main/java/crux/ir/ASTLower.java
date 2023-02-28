@@ -8,10 +8,7 @@ import crux.ast.types.*;
 import crux.ir.insts.*;
 import org.antlr.v4.runtime.misc.Pair;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -116,9 +113,11 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
   private NopInst exitLoop = null;
 
-  private int mCurrentlyAssigning = 0;
+  private boolean mCurrentlyAssigning = false;
 
-  private ArrayList<Pair<Symbol, Integer>>  addressStored = new ArrayList<>();
+  private boolean inDepth = false;
+
+  private Stack<Boolean> depthBool = new Stack<>();
   /**
    * A constructor to initialize member variables
    */
@@ -279,9 +278,9 @@ public final class ASTLower implements NodeVisitor<InstPair> {
   @Override
   public InstPair visit(Assignment assignment) {
     //global assigningCurrently = TRUE
-    //mCurrentlyAssigning += 1;
+    mCurrentlyAssigning = true;
     var lhs = assignment.getLocation().accept(this);
-    mCurrentlyAssigning = 0;
+    mCurrentlyAssigning = false;
     //global assigningCurrebntly = FALSE
     var rhs = assignment.getValue().accept(this);
 
@@ -530,7 +529,6 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(VarAccess name) {
-    mCurrentlyAssigning += 1;
     if (mCurrentLocalVarMap.containsKey(name.getSymbol())) {
       return new InstPair(new NopInst(), mCurrentLocalVarMap.get(name.getSymbol()));
     }
@@ -539,7 +537,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
 
 
 //    if (addressStored.contains(name.getSymbol())) {
-      if (mCurrentlyAssigning >= 2 || mCurrentlyAssigning == 0)
+      if (!mCurrentlyAssigning)
       {
         var load = new LoadInst(mCurrentFunction.getTempVar(name.getType()), v);
 
@@ -552,8 +550,7 @@ public final class ASTLower implements NodeVisitor<InstPair> {
                 v);
     }
 
-//      mCurrentlyAssigning -= 1;
-      return new InstPair(new AddressAt(v, name.getSymbol()), v);
+    return new InstPair(new AddressAt(v, name.getSymbol()), v);
 
   }
   /**
@@ -561,10 +558,14 @@ public final class ASTLower implements NodeVisitor<InstPair> {
    */
   @Override
   public InstPair visit(ArrayAccess access) {
-    mCurrentlyAssigning += 1;
+
+    depthBool.push(mCurrentlyAssigning);
+    mCurrentlyAssigning = false;
 
     var index = access.getIndex().accept(this);
 
+
+    mCurrentlyAssigning = depthBool.pop();
 
     var tempArr = mCurrentFunction.getTempAddressVar(access.getType());
 
@@ -578,15 +579,16 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       adAt = new AddressAt(tempArr, access.getBase(),
               (LocalVar) index.getVal());
     }
+
     index.addEdge(adAt);
     // if NOT currentlyAssigning:
-    if (mCurrentlyAssigning >= 2 || mCurrentlyAssigning == 0) {
+    if (!mCurrentlyAssigning || inDepth) {
       var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
       index.addEdge(loadInst);
     }
     //else we are currentlyAssigning
     index.setVal(tempArr);
-//    mCurrentlyAssigning -= 1;
+
     return index;
 
   }
