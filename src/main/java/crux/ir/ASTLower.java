@@ -58,6 +58,17 @@ class InstPair {
 
   }
 
+  public void setEnd(Instruction inst) {
+
+    var tempEnd = this.end;
+    while (this.end.getNext(0) != null) {
+
+      tempEnd = tempEnd.getNext(0);
+    }
+
+    tempEnd.setNext(0, inst);
+  }
+
 
 
 //  public void addEdge(Instruction inst) {
@@ -276,14 +287,29 @@ public final class ASTLower implements NodeVisitor<InstPair> {
       end = new CopyInst((LocalVar) lhs.getVal(), rhs.getVal());
     }
     else {
-//      if(rhs.getStart().getClass().equals(CopyInst.class))
-//        end = new StoreInst(((CopyInst) rhs.getStart()).getDstVar(), (AddressVar) lhs.getVal());
-//      else if (rhs.getStart().getClass().equals(CallInst.class))
-//        end = new StoreInst(((CallInst) rhs.getStart()).getDst(), (AddressVar) lhs.getVal());
-//      else
-//        end = new StoreInst(((LoadInst) rhs.getStart()).getDst(), (AddressVar) lhs.getVal());
+//      if(lhs.getStart().getClass().equals(AddressAt.class)) {
+//        addressStored.add(((AddressAt) lhs.getStart()).getBase());
+//      }
+//      else {
+//        var temp = lhs.getStart().getNext(0);
+//
+//        addressStored.add(((AddressAt) temp).getBase());
+//      }
 
-      addressStored.add(((AddressAt) lhs.getStart()).getBase());
+      Symbol symbol = null;
+
+      if(assignment.getLocation().getClass().equals(VarAccess.class)) {
+        symbol = ((VarAccess) assignment.getLocation()).getSymbol();
+      }
+      else {
+        symbol = ((ArrayAccess) assignment.getLocation()).getBase();
+      }
+
+      if (!addressStored.contains(symbol) && symbol != null) {
+        addressStored.add(symbol);
+      }
+
+//      addressStored.add(((AddressAt) lhs.getStart()).getBase());
       end = new StoreInst((LocalVar) rhs.getVal(), (AddressVar) lhs.getVal());
     }
 
@@ -293,9 +319,8 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     //start.setNext(0, rhs.start);
     //start.getNext(0).setNext(0, end);
 //    rhs.addEdge(end);
+    rhs.addEdge(end);
     lhs.addEdge(rhs);
-    lhs.addEdge(end);
-
 
     return lhs;
     //return  lhs;
@@ -514,20 +539,21 @@ public final class ASTLower implements NodeVisitor<InstPair> {
     var adAt = new AddressAt(tempArr, access.getBase(),
             (LocalVar) index.getVal());
 
-    index.getEnd().setNext(0, adAt);
+    index.addEdge(adAt);
 
     if (addressStored.contains(access.getBase())) {
       var loadInst = new LoadInst(mCurrentFunction.getTempVar(access.getType()), tempArr);
 
 
 
-      adAt.setNext(0, loadInst);
+//      adAt.setNext(0, loadInst);
+      index.addEdge(loadInst);
 
       return new InstPair(index.getEnd(), loadInst, tempArr);
     }
 
 
-    return new InstPair(index.getEnd(), tempArr);
+    return new InstPair(index.getStart(), tempArr);
 
   }
 
