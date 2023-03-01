@@ -6,6 +6,7 @@ int canary_end;
 void main() {
   canary_begin = 0;
   canary_end = 0;
+
   x[0] = 222;
   x[1] = 333;
   x[2] = 444;
