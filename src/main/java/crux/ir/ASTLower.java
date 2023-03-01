@@ -18,7 +18,7 @@ class InstPair {
   Instruction end;
   Value val;
 
-  //write get and set
+  //write get and set nice
   public Value getVal() {
     return val;
   }
