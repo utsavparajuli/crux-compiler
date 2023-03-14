@@ -6,6 +6,7 @@ import crux.ir.*;
 import crux.ir.insts.*;
 import crux.printing.IRValueFormatter;
 
+
 import java.util.*;
 
 /**
@@ -18,6 +19,10 @@ public final class CodeGen extends InstVisitor {
 
   private HashMap<Variable, Integer> varIndexMap = new HashMap<>();
   private int varIndex = 0;
+  private boolean thenBlock = false;
+  private Instruction lastBlock;
+
+  private HashMap<Instruction, String> labelMap;
 
 
   public CodeGen(Program p) {
@@ -52,11 +57,12 @@ public final class CodeGen extends InstVisitor {
   }
 
   private void genCode(Function f, int[] count) {
-    f.assignLabels(count);
+    labelMap = f.assignLabels(count);
 
-//    HashMap<Integer, String> argReg = new HashMap<>();
+    String[] argReg = new String[] {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    int argRegCount = 0;
 
-    //printInt(1,2)
+
 
 
     //printing function name
@@ -68,11 +74,12 @@ public final class CodeGen extends InstVisitor {
     //prolog
     out.printCode("enter $(8 * " + numVars + "), $0");
 
-    int argNum = 0;
-
-//    for(LocalVar lv : f.getArguments()) {
-//
-//    }
+    for(LocalVar lv: f.getArguments()) {
+      varIndex += 1;
+      varIndexMap.put(lv, varIndex);
+      out.printCode("movq " + argReg[argRegCount] + ", " + -8 * varIndexMap.get(lv) + "(%rbp)");
+      argRegCount++;
+    }
 
     var startInst = f.getStart();
 
@@ -83,43 +90,80 @@ public final class CodeGen extends InstVisitor {
     while(!instStack.isEmpty()) {
       var cur = instStack.pop();
 
+      if(lastBlock != null) {
+        if(cur.equals(lastBlock)) {
+          out.printCode("leave");
+          out.printCode("ret");
+        }
+      }
       if(!visited.contains(cur)) {
         cur.accept(this);
         visited.add(cur);
       }
-      var next = cur.getNext(0);
+      var next_false = cur.getNext(0);
+      var next_true = cur.getNext(1);
 
-      if(next != null) {
-        instStack.push(next);
+      if(next_true != null)
+      {
+        lastBlock = next_true;
+        thenBlock = true;
+        instStack.push(next_true);
+      }
+
+      if(next_false != null)
+      {
+        instStack.push(next_false);
       }
 
     }
 
-
     //epilogue
-    out.printCode("leave");
-    out.printCode("ret");
+    if(!thenBlock) {
+      out.printCode("leave");
+      out.printCode("ret");
+    }
+    else {
+      out.printCode("jmp _L2");
+    }
+
   }
 
   public void visit(AddressAt i) {
+    printInstructionInfo(i);
 
+
+    out.printCode("movq " + i.getBase().getName() + "@GOTPCREL(%rip), %r11");
   }
 
   public void visit(BinaryOperator i) {
+    printInstructionInfo(i);
+
     LocalVar lhs = i.getLeftOperand();
     LocalVar rhs = i.getRightOperand();
 
 
     out.printCode("movq " + -8 * varIndexMap.get(lhs) + "(%rbp)" + ", %r10");
-    out.printCode("addq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+
+    switch (i.getOperator().toString()) {
+      case "Add":
+        out.printCode("addq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+        break;
+      case "Sub":
+        out.printCode("subq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+        break;
+    }
+
     varIndex += 1;
     varIndexMap.put(i.getDst(), varIndex);
     out.printCode("movq %r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
   }
 
-  public void visit(CompareInst i) {}
+  public void visit(CompareInst i) {
+
+  }
 
   public void visit(CopyInst i) {
+    printInstructionInfo(i);
 //    var v = i.
     varIndex += 1;
     varIndexMap.put(i.getDstVar(), varIndex);
@@ -136,18 +180,51 @@ public final class CodeGen extends InstVisitor {
     out.printCode("movq " + "%r10, " + -8 * varIndexMap.get(i.getDstVar()) + "(%rbp)");
   }
 
-  public void visit(JumpInst i) {}
+  public void visit(JumpInst i) {
+    printInstructionInfo(i);
+    out.printCode("movq " + -8 * varIndexMap.get(i.getPredicate()) + "(%rbp), " + "%r10");
 
-  public void visit(LoadInst i) {}
+    out.printCode("cmp $1, %r10");
 
-  public void visit(NopInst i) {
+    out.printCode("je _L1");
+
   }
 
-  public void visit(StoreInst i) {}
+  public void visit(LoadInst i) {
+    printInstructionInfo(i);
 
-  public void visit(ReturnInst i) {}
+
+    out.printCode("movq 0(%r11), %r10");
+
+    varIndex += 1;
+    varIndexMap.put(i.getDst(), varIndex);
+    out.printCode("movq " + "%r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
+  }
+
+  public void visit(NopInst i) {
+    printInstructionInfo(i);
+    if(labelMap.containsKey(i)) {
+      out.printLabel("_" + labelMap.get(i) + ":");
+    }
+
+  }
+
+  public void visit(StoreInst i) {
+    printInstructionInfo(i);
+
+    var offset = 0;
+    out.printCode("movq %r10, 0(%r11)");
+  }
+
+  public void visit(ReturnInst i) {
+    printInstructionInfo(i);
+
+  }
 
   public void visit(CallInst i) {
+
+    printInstructionInfo(i);
 
 //    out.printCode("movq $" + ((IntegerConstant) src).getValue() + ", %r10");
 //  }
@@ -163,5 +240,14 @@ public final class CodeGen extends InstVisitor {
 
   }
 
-  public void visit(UnaryNotInst i) {}
+  public void visit(UnaryNotInst i) {
+    printInstructionInfo(i);
+
+  }
+
+
+  private void printInstructionInfo(Instruction i) {
+    var info = String.format("/* %s */", i.getClass().toString());
+    out.printCode(info);
+  }
 }
