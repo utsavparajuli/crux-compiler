@@ -212,13 +212,17 @@ public final class CodeGen extends InstVisitor {
 
   public void visit(StoreInst i) {
     printInstructionInfo(i);
+    out.printCode("movq " + + -8 * varIndexMap.get(i.getSrcValue()) + "(%rbp), %r10");
 
     var offset = 0;
+
+
     out.printCode("movq %r10, 0(%r11)");
   }
 
   public void visit(ReturnInst i) {
     printInstructionInfo(i);
+    out.printCode("movq " + + -8 * varIndexMap.get(i.getReturnValue()) + "(%rbp), %rax");
 
   }
 
@@ -237,6 +241,13 @@ public final class CodeGen extends InstVisitor {
     }
 
     out.printCode("call _" + i.getCallee().getName());
+
+    if(i.getDst() != null && !varIndexMap.containsKey(i.getDst())) {
+      varIndex+= 1;
+      varIndexMap.put(i.getDst(), varIndex);
+      out.printCode("movq %rax, " +  + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
+    }
 
   }
 
