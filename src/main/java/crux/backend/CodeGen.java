@@ -89,6 +89,9 @@ public final class CodeGen extends InstVisitor {
 
     ArrayList<Instruction> visited = new ArrayList<>();
 
+    Instruction next_false = null;
+    Instruction next_true = null;
+
     while(!instStack.isEmpty()) {
       var cur = instStack.pop();
 
@@ -101,14 +104,16 @@ public final class CodeGen extends InstVisitor {
 
       if(visited.contains(cur) && labelMap.get(cur) != null) {
         out.printCode("jmp _" + labelMap.get(cur));
+        next_false = null;
       }
 
       if(!visited.contains(cur)) {
         cur.accept(this);
         visited.add(cur);
+        next_false = cur.getNext(0);
+        next_true = cur.getNext(1);
       }
-      var next_false = cur.getNext(0);
-      var next_true = cur.getNext(1);
+
 
       if(next_true != null)
       {
@@ -120,10 +125,7 @@ public final class CodeGen extends InstVisitor {
       if(next_false != null)
       {
         instStack.push(next_false);
-
       }
-
-
     }
 
     //epilogue
@@ -131,10 +133,6 @@ public final class CodeGen extends InstVisitor {
       out.printCode("leave");
       out.printCode("ret");
     }
-
-
-
-
   }
 
   public void visit(AddressAt i) {
@@ -201,8 +199,12 @@ public final class CodeGen extends InstVisitor {
   public void visit(CopyInst i) {
     printInstructionInfo(i);
 //    var v = i.
-    varIndex += 1;
-    varIndexMap.put(i.getDstVar(), varIndex);
+
+    if (!varIndexMap.containsKey(i.getDstVar())) {
+      varIndex += 1;
+      varIndexMap.put(i.getDstVar(), varIndex);
+    }
+
 
     var src = i.getSrcValue();
     if(src.getClass().equals(IntegerConstant.class)) {
