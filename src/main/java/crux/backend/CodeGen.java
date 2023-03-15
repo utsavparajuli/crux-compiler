@@ -22,6 +22,8 @@ public final class CodeGen extends InstVisitor {
   private boolean thenBlock = false;
   private Instruction lastBlock;
 
+  private Instruction lastInst;
+
   private HashMap<Instruction, String> labelMap;
 
 
@@ -96,6 +98,11 @@ public final class CodeGen extends InstVisitor {
           out.printCode("ret");
         }
       }
+
+      if(visited.contains(cur) && labelMap.get(cur) != null) {
+        out.printCode("jmp _" + labelMap.get(cur));
+      }
+
       if(!visited.contains(cur)) {
         cur.accept(this);
         visited.add(cur);
@@ -113,7 +120,9 @@ public final class CodeGen extends InstVisitor {
       if(next_false != null)
       {
         instStack.push(next_false);
+
       }
+
 
     }
 
@@ -122,14 +131,18 @@ public final class CodeGen extends InstVisitor {
       out.printCode("leave");
       out.printCode("ret");
     }
-    else {
-      out.printCode("jmp _L2");
-    }
+
+
+
 
   }
 
   public void visit(AddressAt i) {
     printInstructionInfo(i);
+    if(labelMap.containsKey(i)) {
+      out.printLabel("_" + labelMap.get(i) + ":");
+    }
+
 
 
     out.printCode("movq " + i.getBase().getName() + "@GOTPCREL(%rip), %r11");
@@ -151,6 +164,12 @@ public final class CodeGen extends InstVisitor {
       case "Sub":
         out.printCode("subq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
         break;
+      case "Div":
+        out.printCode("movq " + -8 * varIndexMap.get(lhs) + "(%rbp)" + ", %rax");
+        out.printCode("cqto");
+        out.printCode("idivq " + -8 * varIndexMap.get(rhs) + "(%rbp)");
+        out.printCode("movq %rax, " + -8 * varIndexMap.get(lhs) + "(%rbp)");
+        break;
     }
 
     varIndex += 1;
@@ -159,6 +178,23 @@ public final class CodeGen extends InstVisitor {
   }
 
   public void visit(CompareInst i) {
+
+    out.printCode("movq $0, %rax");
+    out.printCode("movq $1, %r10");
+    out.printCode("movq " + -8 * varIndexMap.get(i.getLeftOperand()) + "(%rbp), %r11");
+    out.printCode("cmp " + -8 * varIndexMap.get(i.getRightOperand()) + "(%rbp), %r11");
+
+    switch (i.getPredicate().toString()) {
+      case "GT":
+        out.printCode("cmovg %r10, %rax");
+        break;
+      case "LT":
+        out.printCode("cmovl %r10, %rax");
+        break;
+    }
+    varIndex += 1;
+    varIndexMap.put(i.getDst(), varIndex);
+    out.printCode("movq %rax, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
 
   }
 
@@ -186,7 +222,7 @@ public final class CodeGen extends InstVisitor {
 
     out.printCode("cmp $1, %r10");
 
-    out.printCode("je _L1");
+    out.printCode("je _" + labelMap.get(i.getNext(1)));
 
   }
 
