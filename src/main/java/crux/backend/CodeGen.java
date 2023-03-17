@@ -70,8 +70,8 @@ public final class CodeGen extends InstVisitor {
 
 
     //printing function name
-    out.printCode(".globl _" + f.getName());
-    out.printLabel("_" + f.getName() + ":");
+    out.printCode(".globl " + f.getName());
+    out.printLabel(f.getName() + ":");
 
     var numVars = f.getNumTempVars() + f.getNumTempAddressVars();
     numVars = ((numVars % 2) == 0) ? numVars : numVars + 1;
@@ -113,7 +113,7 @@ public final class CodeGen extends InstVisitor {
       }
 
       if(visited.contains(cur) && labelMap.get(cur) != null) {
-        out.printCode("jmp _" + labelMap.get(cur));
+        out.printCode("jmp " + labelMap.get(cur));
 
         next_false = null;
       }
@@ -153,7 +153,7 @@ public final class CodeGen extends InstVisitor {
 
 
     if(labelMap.containsKey(i)) {
-      out.printLabel("_" + labelMap.get(i) + ":");
+      out.printLabel(labelMap.get(i) + ":");
     }
 
     var offset = i.getOffset();
@@ -280,7 +280,7 @@ public final class CodeGen extends InstVisitor {
 
     out.printCode("cmp $1, %r10");
 
-    out.printCode("je _" + labelMap.get(i.getNext(1)));
+    out.printCode("je " + labelMap.get(i.getNext(1)));
 
   }
 
@@ -299,7 +299,7 @@ public final class CodeGen extends InstVisitor {
   public void visit(NopInst i) {
     printInstructionInfo(i);
     if(labelMap.containsKey(i)) {
-      out.printLabel("_" + labelMap.get(i) + ":");
+      out.printLabel(labelMap.get(i) + ":");
     }
 
   }
@@ -342,7 +342,7 @@ public final class CodeGen extends InstVisitor {
       argRegCount++;
     }
 
-    out.printCode("call _" + i.getCallee().getName());
+    out.printCode("call " + i.getCallee().getName());
 
     if(i.getDst() != null && !varIndexMap.containsKey(i.getDst())) {
       varIndex+= 1;
