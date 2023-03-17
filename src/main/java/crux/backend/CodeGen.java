@@ -43,7 +43,7 @@ public final class CodeGen extends InstVisitor {
 
     for(Iterator<GlobalDecl> glob_it = p.getGlobals(); glob_it.hasNext();) {
       GlobalDecl g = glob_it.next();
-      out.printCode(".comm " + g.getSymbol().getName() + ", " + g.getNumElement().getValue() + ", 8");
+      out.printCode(".comm " + g.getSymbol().getName() + ", " + g.getNumElement().getValue() * 8 + ", 8");
 
     }
 
