@@ -87,6 +87,7 @@ public final class CodeGen extends InstVisitor {
 
     instStack.push(startInst);
 
+    Instruction prev = null;
     ArrayList<Instruction> visited = new ArrayList<>();
 
     Instruction next_false = null;
@@ -96,7 +97,7 @@ public final class CodeGen extends InstVisitor {
       var cur = instStack.pop();
 
       if(lastBlock != null) {
-        if(cur.equals(lastBlock)) {
+        if(cur.equals(lastBlock) && prev.numNext() == 0) {
           out.printCode("leave");
           out.printCode("ret");
         }
@@ -104,6 +105,7 @@ public final class CodeGen extends InstVisitor {
 
       if(visited.contains(cur) && labelMap.get(cur) != null) {
         out.printCode("jmp _" + labelMap.get(cur));
+
         next_false = null;
       }
 
@@ -126,6 +128,8 @@ public final class CodeGen extends InstVisitor {
       {
         instStack.push(next_false);
       }
+
+      prev = cur;
     }
 
     //epilogue
@@ -137,13 +141,24 @@ public final class CodeGen extends InstVisitor {
 
   public void visit(AddressAt i) {
     printInstructionInfo(i);
+
+
     if(labelMap.containsKey(i)) {
       out.printLabel("_" + labelMap.get(i) + ":");
     }
 
+    var offset = i.getOffset();
 
 
     out.printCode("movq " + i.getBase().getName() + "@GOTPCREL(%rip), %r11");
+
+    if (offset != null) {
+      out.printCode("movq " + -8 * varIndexMap.get(offset)+"(%rbp)" + ", %r10");
+      out.printCode("imulq $8, %r10");
+      out.printCode("addq %r10, %r11");
+    }
+
+
   }
 
   public void visit(BinaryOperator i) {
@@ -155,28 +170,46 @@ public final class CodeGen extends InstVisitor {
 
     out.printCode("movq " + -8 * varIndexMap.get(lhs) + "(%rbp)" + ", %r10");
 
+    if (!varIndexMap.containsKey(i.getDst())) {
+      varIndex += 1;
+      varIndexMap.put(i.getDst(), varIndex);
+    }
+
     switch (i.getOperator().toString()) {
       case "Add":
         out.printCode("addq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+        out.printCode("movq %r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
         break;
       case "Sub":
         out.printCode("subq " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+        out.printCode("movq %r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
         break;
       case "Div":
         out.printCode("movq " + -8 * varIndexMap.get(lhs) + "(%rbp)" + ", %rax");
         out.printCode("cqto");
         out.printCode("idivq " + -8 * varIndexMap.get(rhs) + "(%rbp)");
-        out.printCode("movq %rax, " + -8 * varIndexMap.get(lhs) + "(%rbp)");
+        out.printCode("movq %rax, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+        break;
+      case "Mul":
+        out.printCode("imul " + -8 * varIndexMap.get(rhs) + "(%rbp)" + ", %r10");
+        out.printCode("movq %r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
         break;
     }
 
-    varIndex += 1;
-    varIndexMap.put(i.getDst(), varIndex);
-    out.printCode("movq %r10, " + -8 * varIndexMap.get(i.getDst()) + "(%rbp)");
+
+//    if (!varIndexMap.containsKey(i.getDst())) {
+//      varIndex += 1;
+//      varIndexMap.put(i.getDst(), varIndex);
+//    }
+
   }
 
   public void visit(CompareInst i) {
 
+    printInstructionInfo(i);
     out.printCode("movq $0, %rax");
     out.printCode("movq $1, %r10");
     out.printCode("movq " + -8 * varIndexMap.get(i.getLeftOperand()) + "(%rbp), %r11");
@@ -198,12 +231,6 @@ public final class CodeGen extends InstVisitor {
 
   public void visit(CopyInst i) {
     printInstructionInfo(i);
-//    var v = i.
-
-    if (!varIndexMap.containsKey(i.getDstVar())) {
-      varIndex += 1;
-      varIndexMap.put(i.getDstVar(), varIndex);
-    }
 
 
     var src = i.getSrcValue();
@@ -213,6 +240,14 @@ public final class CodeGen extends InstVisitor {
     else if(src.getClass().equals(BooleanConstant.class)) {
       var boolInt = ((BooleanConstant) src).getValue() ? 1 : 0;
       out.printCode("movq $" + boolInt + ", %r10");
+    }
+    else if(src.getClass().equals(LocalVar.class)) {
+      out.printCode("movq " + -8 * varIndexMap.get(src) + "(%rbp), %r10");
+    }
+
+    if (!varIndexMap.containsKey(i.getDstVar())) {
+      varIndex += 1;
+      varIndexMap.put(i.getDstVar(), varIndex);
     }
 
     out.printCode("movq " + "%r10, " + -8 * varIndexMap.get(i.getDstVar()) + "(%rbp)");
