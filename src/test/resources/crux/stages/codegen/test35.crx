@@ -20,13 +20,7 @@ void myPrintThree(int a, int b, int c) {
 }
 
 void main() {
-  myPrintZero();
-  println();
-  myPrintOne(1);
-  println();
   myPrintTwo(1,2);
-  println();
-  myPrintThree(1,2,3);
   println();
 }
 
