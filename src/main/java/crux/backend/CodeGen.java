@@ -60,8 +60,10 @@ public final class CodeGen extends InstVisitor {
 
   private void genCode(Function f, int[] count) {
     labelMap = f.assignLabels(count);
+    varIndexMap = new HashMap<>();
+    varIndex = 0;
 
-    String[] argReg = new String[] {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    String[] argReg = new String[] {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "16(%rbp)", "24(%rbp)", "32(%rbp)"};
     int argRegCount = 0;
 
 
@@ -79,7 +81,14 @@ public final class CodeGen extends InstVisitor {
     for(LocalVar lv: f.getArguments()) {
       varIndex += 1;
       varIndexMap.put(lv, varIndex);
-      out.printCode("movq " + argReg[argRegCount] + ", " + -8 * varIndexMap.get(lv) + "(%rbp)");
+      if (argRegCount > 5) {
+        out.printCode("movq " + argReg[argRegCount] + ", %r10");
+        out.printCode("movq %r10, " + -8 * varIndexMap.get(lv) + "(%rbp)");
+      }
+      else
+      {
+        out.printCode("movq " + argReg[argRegCount] + ", " + -8 * varIndexMap.get(lv) + "(%rbp)");
+      }
       argRegCount++;
     }
 
@@ -222,6 +231,18 @@ public final class CodeGen extends InstVisitor {
       case "LT":
         out.printCode("cmovl %r10, %rax");
         break;
+      case "LE":
+        out.printCode("cmovle %r10, %rax");
+        break;
+      case "GE":
+        out.printCode("cmovge %r10, %rax");
+        break;
+      case "NE":
+        out.printCode("cmovne %r10, %rax");
+        break;
+      case "EQ":
+        out.printCode("cmove %r10, %rax");
+        break;
     }
     varIndex += 1;
     varIndexMap.put(i.getDst(), varIndex);
@@ -305,11 +326,19 @@ public final class CodeGen extends InstVisitor {
 
 //    out.printCode("movq $" + ((IntegerConstant) src).getValue() + ", %r10");
 //  }
-    String[] argReg = new String[] {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    String[] argReg = new String[] {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "16(%rbp)", "24(%rbp)", "32(%rbp)"};
 
     int argRegCount = 0;
     for (LocalVar arg: i.getParams()) {
-      out.printCode("movq " + -8 * varIndexMap.get(arg) + "(%rbp)" + ", " + argReg[argRegCount]);
+      if (argRegCount > 5) {
+        out.printCode("movq " + -8 * varIndexMap.get(arg) + "(%rbp)" + ", %r10");
+        out.printCode("movq %r10, " + argReg[argRegCount]);
+      }
+      else
+      {
+        out.printCode("movq " + -8 * varIndexMap.get(arg) + "(%rbp)" + ", " + argReg[argRegCount]);
+      }
+
       argRegCount++;
     }
 
@@ -327,6 +356,12 @@ public final class CodeGen extends InstVisitor {
   public void visit(UnaryNotInst i) {
     printInstructionInfo(i);
 
+
+    varIndex+= 1;
+    varIndexMap.put(i.getDst(), varIndex);
+
+    out.printCode("movq $1, %r11");
+    out.printCode("subq " + -8 * varIndexMap.get(i.getDst()) + "(%rbp), %r11");
   }
 
 
